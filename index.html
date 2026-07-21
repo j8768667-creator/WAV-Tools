@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes">
-<title>Incredibox Batch Audio Toolkit v1.2.0</title>
+<title>Incredibox Batch Audio Toolkit v1.2.1</title>
 <style>
 /* ── reset & base ── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -90,7 +90,7 @@ button.small{padding:4px 10px;font-size:12px}
 <body>
 <div class="app" id="app">
   <header>
-    <h1>🎵 Incredibox Batch Audio <small>v1.2.0</small></h1>
+    <h1>🎵 Incredibox Batch Audio <small>v1.2.1</small></h1>
     <div class="actions">
       <button id="btnReset" class="danger">🗑 Reset</button>
       <button id="btnTheme">🌓 Theme</button>
@@ -830,6 +830,7 @@ function applySettingsToUI(){
   $('rnUnderscore').checked=s.rnUnderscore||false;
   $('renamePattern').value=s.renamePattern||'{original}_{number}';
   updateFormatUI();
+  updateTempoUI();
 }
 
 function gatherSettingsFromUI(){
@@ -883,6 +884,19 @@ function updateFormatUI(){
   const fmt=select.value;
   $('mp3Settings').classList.toggle('hidden', fmt!=='mp3');
   $('wavSettings').classList.toggle('hidden', fmt!=='wav');
+}
+
+
+function updateTempoUI(){
+  const keep=$('tempoMode').value==='keep';
+  const tempoCheck=$('chTempoChange');
+  const target=$('targetBpm');
+  tempoCheck.disabled=keep;
+  target.disabled=keep;
+  if(keep){
+    tempoCheck.checked=false;
+    state.settings.tempoChange=false;
+  }
 }
 
 // ─── File Management ────────────────────────────────────────────
@@ -1233,8 +1247,8 @@ async function processFile(item){
   if(s.trim) data=trimSilence(data, sr, s.trimThreshold, s.trimPadding/1000);
 
   let targetBPM=s.tempoMode==='individual'?(item.targetBPM||s.targetBpm):s.targetBpm;
-  if(s.tempoChange){
-    if(!item.sourceBPM || item.sourceBPM<40 || item.sourceBPM>300) throw new Error('A valid source BPM is required for tempo changing');
+  if(s.tempoChange && s.tempoMode!=='keep'){
+    if(!item.sourceBPM || item.sourceBPM<40 || item.sourceBPM>300) throw new Error('A valid source BPM is required when BPM tempo changing is enabled. Analyse the file or enter its BPM manually.');
     const tempoRatio=targetBPM/item.sourceBPM;
     if(tempoRatio<0.5 || tempoRatio>2) logWarn('Large tempo change ('+tempoRatio.toFixed(2)+'x) may create artefacts: '+item.originalName);
     if(Math.abs(tempoRatio-1)>0.001) data=timeStretchWSOLA(data, sr, tempoRatio, s.stretchQuality);
@@ -1837,7 +1851,7 @@ async function processSelected(){
   }
   state.processing=false; $('processingBar').classList.add('hidden');
   if(state.cancelled){ setStatus('Processing cancelled.','warn'); logInfo('Processing cancelled.'); }
-  else { setStatus('Processing complete: '+completed+' done, '+failed+' failed.',failed?'warn':'ok'); logInfo('Processing complete: '+completed+' done, '+failed+' failed.'); }
+  else { const firstFailure=selected.find(f=>f.status==='failed' && f.error); setStatus('Processing complete: '+completed+' done, '+failed+' failed.'+(firstFailure?' '+firstFailure.error:''),failed?'warn':'ok'); logInfo('Processing complete: '+completed+' done, '+failed+' failed.'); }
   renderFiles(); updateCounts();
 }
 
@@ -1890,6 +1904,7 @@ function initUI(){
 
   // Settings
   $('outFormat').addEventListener('change', ()=>{ gatherSettingsFromUI(); updateFormatUI(); });
+  $('tempoMode').addEventListener('change', ()=>{ updateTempoUI(); gatherSettingsFromUI(); });
   qsa('#panel-settings input, #panel-settings select, #panel-settings textarea').forEach(el=>{
     el.addEventListener('change', gatherSettingsFromUI);
     if(el.type==='range' || el.type==='number') el.addEventListener('input', gatherSettingsFromUI);
