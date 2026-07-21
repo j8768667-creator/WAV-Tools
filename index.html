@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes">
-<title>Incredibox Batch Audio Toolkit v1.1.1</title>
+<title>Incredibox Batch Audio Toolkit v1.1.2</title>
 <style>
 /* ── reset & base ── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -48,6 +48,9 @@ button.danger{background:#fecaca;color:#991b1b}
 button.ok{background:#d1fae5;color:#0b7e4b}
 button:disabled{opacity:.5;pointer-events:none}
 button.small{padding:4px 10px;font-size:12px}
+.import-label{display:inline-flex;align-items:center;justify-content:center;padding:8px 14px;border:none;border-radius:8px;font-weight:600;cursor:pointer;touch-action:manipulation;background:var(--accent);color:#fff;min-height:44px;user-select:none;-webkit-user-select:none}
+.import-label:active{transform:scale(.96)}
+.file-picker-input{position:fixed!important;left:-10000px!important;top:-10000px!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
 .flex{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .flex>*{flex-shrink:0}
 .mt-8{margin-top:8px}
@@ -87,7 +90,7 @@ button.small{padding:4px 10px;font-size:12px}
 <body>
 <div class="app" id="app">
   <header>
-    <h1>🎵 Incredibox Batch Audio <small>v1.1.1</small></h1>
+    <h1>🎵 Incredibox Batch Audio <small>v1.1.2</small></h1>
     <div class="actions">
       <button id="btnReset" class="danger">🗑 Reset</button>
       <button id="btnTheme">🌓 Theme</button>
@@ -112,8 +115,8 @@ button.small{padding:4px 10px;font-size:12px}
     <h2>Import Audio Files</h2>
     <p class="text-muted">Supports WAV, MP3, M4A, AIFF, OGG, FLAC (browser permitting). All processing is local.</p>
     <div class="row">
-      <button id="btnImportFiles" class="primary">📁 Select Files</button>
-      <button id="btnImportFolder" class="primary">📂 Select Folder</button>
+      <label for="fileInput" id="btnImportFiles" class="import-label">📁 Select Files</label>
+      <label for="folderInput" id="btnImportFolder" class="import-label">📂 Select Folder</label>
       <button id="btnClearAll" class="danger">✕ Clear All</button>
     </div>
     <div id="dropZone" class="drop-zone" style="border:2px dashed var(--border);border-radius:var(--radius);padding:30px 12px;text-align:center;color:var(--muted);margin:8px 0;background:var(--bg)">
@@ -121,8 +124,8 @@ button.small{padding:4px 10px;font-size:12px}
       <div>Drop audio files here or use the buttons above.</div>
     </div>
     <div id="importInfo" class="text-muted" style="margin-top:6px">No files imported.</div>
-    <input type="file" id="fileInput" accept=".wav,.wave,.mp3,.m4a,.aac,.aif,.aiff,.ogg,.oga,.flac,audio/wav,audio/x-wav,audio/wave,audio/vnd.wave,audio/mpeg,audio/mp4,audio/aac,audio/aiff,audio/x-aiff,audio/ogg,audio/flac,audio/x-flac" multiple style="display:none">
-    <input type="file" id="folderInput" accept=".wav,.wave,.mp3,.m4a,.aac,.aif,.aiff,.ogg,.oga,.flac,audio/wav,audio/x-wav,audio/wave,audio/vnd.wave,audio/mpeg,audio/mp4,audio/aac,audio/aiff,audio/x-aiff,audio/ogg,audio/flac,audio/x-flac" webkitdirectory multiple style="display:none">
+    <input type="file" id="fileInput" class="file-picker-input" multiple>
+    <input type="file" id="folderInput" class="file-picker-input" webkitdirectory directory multiple>
   </div>
 
   <!-- ========== SETTINGS ========== -->
@@ -853,6 +856,13 @@ function addFiles(fileList){
   const added=[];
   for(let i=0;i<fileList.length;i++){
     const f=fileList[i];
+    const ext=(f.name.split('.').pop()||'').toLowerCase();
+    const supportedExts=new Set(['wav','wave','mp3','m4a','aac','aif','aiff','ogg','oga','flac']);
+    const looksAudio=(f.type&&f.type.toLowerCase().startsWith('audio/')) || supportedExts.has(ext);
+    if(!looksAudio){
+      logWarn('Skipped unsupported file: '+f.name);
+      continue;
+    }
     // skip duplicates by name and size
     const dup=state.files.some(ex=>ex.file.name===f.name && ex.file.size===f.size);
     if(dup) continue;
@@ -1711,19 +1721,26 @@ function initUI(){
     });
   });
 
-  // Import
-  $('btnImportFiles').addEventListener('click', ()=>{
-    $('fileInput').click();
-  });
+  // Import — labels are directly associated with the native file inputs.
+  // This avoids blocked synthetic input.click() calls in iPad Chrome/WebKit.
   $('fileInput').addEventListener('change', function(){
-    if(this.files.length) addFiles(this.files);
+    const chosen=Array.from(this.files||[]);
+    if(chosen.length){
+      addFiles(chosen);
+      setStatus('Selected '+chosen.length+' file(s). Reading metadata…', 'ok');
+    }else{
+      setStatus('No files selected.', 'warn');
+    }
     this.value='';
   });
-  $('btnImportFolder').addEventListener('click', ()=>{
-    $('folderInput').click();
-  });
   $('folderInput').addEventListener('change', function(){
-    if(this.files.length) addFiles(this.files);
+    const chosen=Array.from(this.files||[]);
+    if(chosen.length){
+      addFiles(chosen);
+      setStatus('Selected '+chosen.length+' file(s) from folder.', 'ok');
+    }else{
+      setStatus('No folder files selected.', 'warn');
+    }
     this.value='';
   });
   $('btnClearAll').addEventListener('click', clearAllFiles);
