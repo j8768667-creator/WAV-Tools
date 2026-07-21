@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes">
-<title>Incredibox Batch Audio Toolkit v1.1.3</title>
+<title>Incredibox Batch Audio Toolkit v1.2.0</title>
 <style>
 /* ── reset & base ── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -90,7 +90,7 @@ button.small{padding:4px 10px;font-size:12px}
 <body>
 <div class="app" id="app">
   <header>
-    <h1>🎵 Incredibox Batch Audio <small>v1.1.3</small></h1>
+    <h1>🎵 Incredibox Batch Audio <small>v1.2.0</small></h1>
     <div class="actions">
       <button id="btnReset" class="danger">🗑 Reset</button>
       <button id="btnTheme">🌓 Theme</button>
@@ -154,6 +154,28 @@ button.small{padding:4px 10px;font-size:12px}
       <div><label><input type="checkbox" id="chTempoChange"> Change audio length to target BPM (pitch-preserving)</label></div>
       <div><label>Quality</label>
         <select id="stretchQuality"><option value="fast">Fast</option><option value="balanced" selected>Balanced</option><option value="high">High</option></select>
+      </div>
+    </div>
+    <div class="row">
+      <div><label>Preferred Length</label>
+        <input id="preferredLength" type="number" value="4" min="0.1" max="600" step="0.001">
+        <div class="text-muted">Exact output duration in seconds.</div>
+      </div>
+      <div><label>Length Mode</label>
+        <select id="lengthMode">
+          <option value="keep">Keep processed length</option>
+          <option value="trim">Trim or pad to exact length</option>
+          <option value="stretch">Time-stretch to exact length</option>
+          <option value="repeat">Repeat/extend to exact length</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div><label><input type="checkbox" id="chLoopSafe" checked> Smooth loop boundary</label>
+        <div class="text-muted">Blends the start and end without fading the loop to silence.</div>
+      </div>
+      <div><label>Loop smoothing</label>
+        <input id="loopCrossfadeMs" type="number" value="12" min="0" max="250" step="1"> ms
       </div>
     </div>
     <div class="row">
@@ -296,12 +318,12 @@ button.small{padding:4px 10px;font-size:12px}
       <ol style="margin:12px 0 0 18px;line-height:1.7;color:var(--ink)">
         <li><strong>Import</strong> – select audio files (WAV, MP3, etc.)</li>
         <li><strong>Analyse</strong> – BPM is estimated automatically, or enter manually</li>
-        <li><strong>Settings</strong> – choose output format, target BPM, normalise, trim, etc.</li>
+        <li><strong>Settings</strong> – choose output format, target BPM, preferred duration and loop smoothing.</li>
         <li><strong>Rename</strong> – batch rename files using tokens and presets</li>
         <li><strong>Process</strong> – convert, time‑stretch, and encode selected files</li>
         <li><strong>Export</strong> – download a ZIP of all processed files</li>
       </ol>
-      <p style="margin-top:12px;font-size:13px;color:var(--muted)">All processing is local. No files are uploaded. Works offline.</p>
+      <p style="margin-top:12px;font-size:13px;color:var(--muted)">For loops, leave Fade in and Fade out unticked and enable Smooth loop boundary. All processing is local. No files are uploaded. Works offline.</p>
       <button id="btnHelpClose" class="primary" style="margin-top:14px">Got it</button>
     </div>
   </div>
@@ -638,6 +660,10 @@ const state = {
     targetBpm: 120,
     tempoChange: false,
     stretchQuality: 'balanced',
+    preferredLength: 4,
+    lengthMode: 'keep',
+    loopSafe: true,
+    loopCrossfadeMs: 12,
     normalise: false,
     normaliseTarget: -1.0,
     trim: false,
@@ -773,6 +799,10 @@ function applySettingsToUI(){
   $('targetBpm').value=s.targetBpm;
   $('chTempoChange').checked=s.tempoChange;
   $('stretchQuality').value=s.stretchQuality;
+  $('preferredLength').value=s.preferredLength||4;
+  $('lengthMode').value=s.lengthMode||'keep';
+  $('chLoopSafe').checked=s.loopSafe!==false;
+  $('loopCrossfadeMs').value=s.loopCrossfadeMs??12;
   $('chNormalise').checked=s.normalise;
   $('normaliseTarget').value=String(s.normaliseTarget);
   $('chTrim').checked=s.trim;
@@ -811,6 +841,10 @@ function gatherSettingsFromUI(){
   s.targetBpm=parseFloat($('targetBpm').value)||120;
   s.tempoChange=$('chTempoChange').checked;
   s.stretchQuality=$('stretchQuality').value;
+  s.preferredLength=Math.max(0.1, parseFloat($('preferredLength').value)||4);
+  s.lengthMode=$('lengthMode').value;
+  s.loopSafe=$('chLoopSafe').checked;
+  s.loopCrossfadeMs=Math.max(0, parseFloat($('loopCrossfadeMs').value)||0);
   s.normalise=$('chNormalise').checked;
   s.normaliseTarget=parseFloat($('normaliseTarget').value)||-1.0;
   s.trim=$('chTrim').checked;
@@ -1208,6 +1242,18 @@ async function processFile(item){
 
   const targetSr=s.sampleRate==='keep'?sr:parseInt(s.sampleRate,10);
   if(targetSr!==sr && targetSr>0){ data=resampleAudio(data, sr, targetSr); sr=targetSr; }
+
+  // Force an exact preferred duration after tempo and sample-rate processing.
+  if(s.lengthMode!=='keep'){
+    data=fitToPreferredLength(data, sr, s.preferredLength, s.lengthMode, s.stretchQuality);
+  }
+
+  // Loop smoothing is separate from ordinary fades. It keeps the boundary audible
+  // rather than fading both ends to silence.
+  if(s.loopSafe && s.loopCrossfadeMs>0){
+    data=smoothLoopBoundary(data, sr, s.loopCrossfadeMs/1000);
+  }
+
   if(s.normalise) data=normalisePeak(data, s.normaliseTarget);
   if(s.fadeIn && s.fadeInMs>0) data=applyFade(data, sr, s.fadeInMs/1000, 'in');
   if(s.fadeOut && s.fadeOutMs>0) data=applyFade(data, sr, s.fadeOutMs/1000, 'out');
@@ -1224,6 +1270,74 @@ async function processFile(item){
   item.progress=100;
   item.decodedBuffer=null;
   return item;
+}
+
+// ─── Preferred length and loop preparation ─────────────────────
+function fitToPreferredLength(data, sr, seconds, mode){
+  const targetLen=Math.max(1, Math.round(seconds*sr));
+  const currentLen=data[0]?.length||0;
+  if(!currentLen || currentLen===targetLen) return data;
+
+  if(mode==='stretch'){
+    // timeStretchWSOLA output length is approximately inputLength / ratio.
+    const ratio=currentLen/targetLen;
+    let stretched=timeStretchWSOLA(data, sr, ratio, state.settings.stretchQuality||'balanced');
+    return forceExactSampleLength(stretched, targetLen);
+  }
+
+  if(mode==='repeat'){
+    return data.map(ch=>{
+      const out=new Float32Array(targetLen);
+      for(let i=0;i<targetLen;i++) out[i]=ch[i%currentLen];
+      return out;
+    });
+  }
+
+  // Trim if long; pad with silence if short.
+  return data.map(ch=>{
+    const out=new Float32Array(targetLen);
+    out.set(ch.subarray(0, Math.min(currentLen,targetLen)),0);
+    return out;
+  });
+}
+
+function forceExactSampleLength(data, targetLen){
+  return data.map(ch=>{
+    if(ch.length===targetLen) return ch;
+    const out=new Float32Array(targetLen);
+    if(ch.length>targetLen){
+      out.set(ch.subarray(0,targetLen));
+    }else{
+      out.set(ch);
+      // Extend the final value briefly rather than leaving an accidental abrupt hole.
+      const last=ch.length?ch[ch.length-1]:0;
+      for(let i=ch.length;i<targetLen;i++) out[i]=last;
+    }
+    return out;
+  });
+}
+
+function smoothLoopBoundary(data, sr, seconds){
+  const len=data[0]?.length||0;
+  if(len<4) return data;
+  const requested=Math.round(seconds*sr);
+  const n=Math.max(2, Math.min(requested, Math.floor(len/4)));
+  if(n<2) return data;
+
+  return data.map(ch=>{
+    const out=new Float32Array(ch);
+    const boundary=(ch[0]+ch[len-1])*0.5;
+    for(let i=0;i<n;i++){
+      const t=i/(n-1);
+      const startIndex=i;
+      const endIndex=len-1-i;
+      // Both sides meet at the same sample value at the actual loop seam,
+      // then progressively return to the untouched waveform.
+      out[startIndex]=boundary*(1-t)+ch[startIndex]*t;
+      out[endIndex]=boundary*(1-t)+ch[endIndex]*t;
+    }
+    return out;
+  });
 }
 
 // ─── Channel conversion ────────────────────────────────────────
