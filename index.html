@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes">
-<title>Incredibox Batch Audio Toolkit v1.1</title>
+<title>Incredibox Batch Audio Toolkit v1.1.1</title>
 <style>
 /* ── reset & base ── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -87,7 +87,7 @@ button.small{padding:4px 10px;font-size:12px}
 <body>
 <div class="app" id="app">
   <header>
-    <h1>🎵 Incredibox Batch Audio <small>v1.1</small></h1>
+    <h1>🎵 Incredibox Batch Audio <small>v1.1.1</small></h1>
     <div class="actions">
       <button id="btnReset" class="danger">🗑 Reset</button>
       <button id="btnTheme">🌓 Theme</button>
@@ -121,8 +121,8 @@ button.small{padding:4px 10px;font-size:12px}
       <div>Drop audio files here or use the buttons above.</div>
     </div>
     <div id="importInfo" class="text-muted" style="margin-top:6px">No files imported.</div>
-    <input type="file" id="fileInput" accept="audio/*" multiple style="display:none">
-    <input type="file" id="folderInput" webkitdirectory multiple style="display:none">
+    <input type="file" id="fileInput" accept=".wav,.wave,.mp3,.m4a,.aac,.aif,.aiff,.ogg,.oga,.flac,audio/wav,audio/x-wav,audio/wave,audio/vnd.wave,audio/mpeg,audio/mp4,audio/aac,audio/aiff,audio/x-aiff,audio/ogg,audio/flac,audio/x-flac" multiple style="display:none">
+    <input type="file" id="folderInput" accept=".wav,.wave,.mp3,.m4a,.aac,.aif,.aiff,.ogg,.oga,.flac,audio/wav,audio/x-wav,audio/wave,audio/vnd.wave,audio/mpeg,audio/mp4,audio/aac,audio/aiff,audio/x-aiff,audio/ogg,audio/flac,audio/x-flac" webkitdirectory multiple style="display:none">
   </div>
 
   <!-- ========== SETTINGS ========== -->
