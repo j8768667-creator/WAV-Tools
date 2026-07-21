@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes">
-<title>Incredibox Batch Audio Toolkit v1.2.1</title>
+<title>Incredibox Batch Audio Toolkit v1.2.2</title>
 <style>
 /* ── reset & base ── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -90,7 +90,7 @@ button.small{padding:4px 10px;font-size:12px}
 <body>
 <div class="app" id="app">
   <header>
-    <h1>🎵 Incredibox Batch Audio <small>v1.2.1</small></h1>
+    <h1>🎵 Incredibox Batch Audio <small>v1.2.2</small></h1>
     <div class="actions">
       <button id="btnReset" class="danger">🗑 Reset</button>
       <button id="btnTheme">🌓 Theme</button>
@@ -1248,7 +1248,7 @@ async function processFile(item){
 
   let targetBPM=s.tempoMode==='individual'?(item.targetBPM||s.targetBpm):s.targetBpm;
   if(s.tempoChange && s.tempoMode!=='keep'){
-    if(!item.sourceBPM || item.sourceBPM<40 || item.sourceBPM>300) throw new Error('A valid source BPM is required when BPM tempo changing is enabled. Analyse the file or enter its BPM manually.');
+    if(!item.sourceBPM || item.sourceBPM<40 || item.sourceBPM>300) throw new Error('A valid source BPM is required. Enter it manually in Files, or choose Keep original tempo.');
     const tempoRatio=targetBPM/item.sourceBPM;
     if(tempoRatio<0.5 || tempoRatio>2) logWarn('Large tempo change ('+tempoRatio.toFixed(2)+'x) may create artefacts: '+item.originalName);
     if(Math.abs(tempoRatio-1)>0.001) data=timeStretchWSOLA(data, sr, tempoRatio, s.stretchQuality);
@@ -1835,6 +1835,26 @@ async function processSelected(){
       ctx=new AudioCtx();
       item.decodedBuffer=await ctx.decodeAudioData(await item.file.arrayBuffer());
       item.duration=item.decodedBuffer.duration; item.sampleRate=item.decodedBuffer.sampleRate; item.channels=item.decodedBuffer.numberOfChannels;
+
+      // Automatically estimate a missing source BPM when tempo changing is enabled.
+      // This keeps Process Selected from failing merely because Analyse Selected was
+      // not pressed first. A manual or filename BPM is always preserved.
+      const needsSourceBPM=state.settings.tempoChange && state.settings.tempoMode!=='keep';
+      if(needsSourceBPM && (!item.sourceBPM || item.sourceBPM<40 || item.sourceBPM>300)){
+        item.status='analysing'; item.progress=20; renderFiles();
+        $('pbInfo').textContent='Detecting BPM for '+item.originalName+'…';
+        const bpmResult=await detectBPM(item.decodedBuffer);
+        if(bpmResult && bpmResult.bpm>=40 && bpmResult.bpm<=300){
+          item.sourceBPM=bpmResult.bpm;
+          item.sourceBPMOrigin='detected';
+          item.bpmConfidence=bpmResult.confidence||'low';
+          item.alternativeBPMs=bpmResult.alternatives||[];
+          logInfo('Automatically detected '+item.sourceBPM+' BPM for '+item.originalName+'.');
+        }else{
+          throw new Error('BPM could not be detected reliably. Open Files, tap BPM, and enter the source BPM manually, or choose Keep original tempo.');
+        }
+      }
+
       item.status='processing'; item.progress=40; renderFiles();
       await processFile(item);
       completed++; logInfo('Processed: '+item.originalName);
