@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes">
-    <title>Incredibox Loop Studio v3.0</title>
+    <title>Incredibox Loop Studio v3.3</title>
     <style>
         /* ─── RESET & VARIABLES ─────────────────────────────────────────────────── */
         * {
@@ -964,7 +964,7 @@
     <div class="app" id="app">
         <!-- ─── HEADER ─────────────────────────────────────────────────────────── -->
         <header>
-            <h1>🎵 Incredibox Loop <small>v3.0</small></h1>
+            <h1>🎵 Incredibox Loop <small>v3.3</small></h1>
             <div class="actions">
                 <button id="btnUndo" disabled title="Undo (⌘Z)">↩️</button>
                 <button id="btnRedo" disabled title="Redo (⌘⇧Z)">↪️</button>
@@ -1282,7 +1282,7 @@
         <!-- ─── HELP OVERLAY ────────────────────────────────────────────────────── -->
         <div id="helpOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;padding:20px;overflow-y:auto;align-items:center;justify-content:center">
             <div style="max-width:500px;background:var(--panel);border-radius:var(--radius);padding:20px;margin:auto;max-height:90vh;overflow-y:auto">
-                <h2>Incredibox Loop Studio v3.0</h2>
+                <h2>Incredibox Loop Studio v3.3</h2>
                 <ol style="margin:10px 0 0 16px;line-height:1.8;font-size:14px">
                     <li><strong>Library</strong> – import audio (BPM auto-detected)</li>
                     <li><strong>Slice</strong> – chop into hits, beats, or loops</li>
@@ -2653,21 +2653,27 @@
                 });
                 container.appendChild(btn);
             });
-            // Add "add slice" button
+            // Add a new empty track. Tracks are no longer limited to the initial four.
             const addBtn = document.createElement('button');
             addBtn.className = 'track-btn';
             addBtn.textContent = '➕';
-            addBtn.title = 'Add slice from library at cursor';
+            addBtn.title = 'Add another track';
+            addBtn.setAttribute('aria-label', 'Add another track');
             addBtn.addEventListener('click', function() {
-                const file = getSliceFile();
-                if (!file) { setStatus('Select a sample first.', 'warn'); return; }
-                const slices = state.slices.get(file.id);
-                if (!slices || !slices.length) { setStatus('No slices for this sample.', 'warn'); return; }
-                // Add first slice to first non-muted track at cursor position
-                const pos = lb.getPlayheadPos ? lb.getPlayheadPos() : 0;
-                const track = state.tracks.find(t => !t.muted);
-                if (!track) { setStatus('All tracks muted.', 'warn'); return; }
-                addSliceToTrack(track.id, file.id, 0, pos);
+                const palette = ['#4f46e5', '#7c3aed', '#0891b2', '#059669', '#db2777', '#ea580c', '#65a30d', '#0284c7'];
+                const number = state.tracks.length + 1;
+                state.tracks.push({
+                    id: state.nextTrackId++,
+                    name: 'Track ' + number,
+                    color: palette[(number - 1) % palette.length],
+                    slices: [],
+                    muted: false,
+                    solo: false
+                });
+                checkpoint('Add track');
+                renderTrackControls();
+                renderLBTimeline();
+                setStatus('Track ' + number + ' added.', 'ok');
             });
             container.appendChild(addBtn);
         }
@@ -2795,6 +2801,7 @@
 
                     // Click to select
                     block.addEventListener('click', function(e) {
+                        if (suppressClick) { e.preventDefault(); e.stopPropagation(); return; }
                         e.stopPropagation();
                         const id = parseInt(this.dataset.sliceId);
                         if (e.shiftKey) {
@@ -2808,98 +2815,107 @@
                         showSliceEditor(id);
                     });
 
-                    // Touch drag
+                    // Smooth pointer drag for mouse, Pencil and iPad touch.
+                    // The block follows the pointer on the snapped grid and can move between tracks.
                     let dragData = null;
-                    block.addEventListener('touchstart', function(e) {
-                        const touch = e.touches[0];
-                        const rect = this.getBoundingClientRect();
+                    let suppressClick = false;
+
+                    block.addEventListener('pointerdown', function(e) {
+                        if (e.button != null && e.button !== 0) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const ppb = 20 * (state.zoom || 1);
                         dragData = {
                             id: parseInt(this.dataset.sliceId),
-                            startX: touch.clientX,
-                            origLeft: parseFloat(this.style.left) || 0,
+                            pointerId: e.pointerId,
+                            startX: e.clientX,
+                            startY: e.clientY,
                             startLeft: parseFloat(this.style.left) || 0,
-                            trackId: track.id,
-                            isDragging: false
+                            originalTrackId: track.id,
+                            targetTrackId: track.id,
+                            targetPosition: sl.position,
+                            moved: false,
+                            ppb
                         };
-                        this.style.zIndex = 10;
-                    }, { passive: true });
-
-                    block.addEventListener('touchmove', function(e) {
-                        if (!dragData) return;
-                        const touch = e.touches[0];
-                        const dx = touch.clientX - dragData.startX;
-                        if (Math.abs(dx) > 8) {
-                            dragData.isDragging = true;
-                            e.preventDefault();
-                            const newLeft = Math.max(0, dragData.startLeft + dx);
-                            this.style.left = newLeft + 'px';
-                            this.style.opacity = '0.7';
-                            // Snap feedback
-                            const snap = parseFloat($('lbSnap').value) || 4;
-                            const ppb = 20 * state.zoom;
-                            const snapPx = (snap / 4) * ppb;
-                            const snapped = Math.round(newLeft / snapPx) * snapPx;
-                            if (Math.abs(newLeft - snapped) < snapPx * 0.3) {
-                                this.style.borderColor = 'var(--lb-cursor)';
-                            } else {
-                                this.style.borderColor = 'var(--lb-slice-border)';
-                            }
-                        }
+                        try { this.setPointerCapture(e.pointerId); } catch (_) {}
+                        this.style.zIndex = '20';
+                        this.style.transition = 'none';
                     }, { passive: false });
 
-                    block.addEventListener('touchend', function(e) {
-                        if (dragData && dragData.isDragging) {
-                            const newLeft = parseFloat(this.style.left) || 0;
-                            const snap = parseFloat($('lbSnap').value) || 4;
-                            const ppb = 20 * state.zoom;
-                            const snapPx = (snap / 4) * ppb;
-                            let newPos = newLeft / ppb;
-                            if ($('lbQuantise').checked) {
-                                newPos = Timing.quantise(newPos, snap / 4);
+                    block.addEventListener('pointermove', function(e) {
+                        if (!dragData || e.pointerId !== dragData.pointerId) return;
+                        const dx = e.clientX - dragData.startX;
+                        const dy = e.clientY - dragData.startY;
+                        if (!dragData.moved && Math.hypot(dx, dy) < 4) return;
+                        dragData.moved = true;
+                        suppressClick = true;
+                        e.preventDefault();
+
+                        const innerRect = $('lbTimelineInner').getBoundingClientRect();
+                        const scroll = $('lbTimelineScroll');
+                        const pointerContentX = e.clientX - innerRect.left + (scroll ? scroll.scrollLeft : 0);
+                        const blockGrabOffset = dragData.startX - (innerRect.left + dragData.startLeft - (scroll ? scroll.scrollLeft : 0));
+                        let newLeft = Math.max(0, pointerContentX - blockGrabOffset);
+
+                        const snapValue = parseFloat($('lbSnap').value) || 4;
+                        const snapBeats = snapValue / 4;
+                        let newPos = newLeft / dragData.ppb;
+                        if ($('lbQuantise').checked) newPos = Timing.quantise(newPos, snapBeats);
+                        newPos = Math.max(0, newPos);
+                        newLeft = newPos * dragData.ppb;
+
+                        const relY = e.clientY - innerRect.top - 20;
+                        const rowHeight = Math.max(1, (innerRect.height - 20) / state.tracks.length);
+                        const idx = Math.max(0, Math.min(state.tracks.length - 1, Math.floor(relY / rowHeight)));
+                        const targetTrack = state.tracks[idx] || track;
+
+                        dragData.targetTrackId = targetTrack.id;
+                        dragData.targetPosition = newPos;
+                        this.style.left = newLeft + 'px';
+                        this.style.opacity = '0.82';
+                        this.style.borderColor = 'var(--lb-cursor)';
+                        this.style.transform = `translateY(${(idx - state.tracks.findIndex(t => t.id === dragData.originalTrackId)) * rowHeight}px)`;
+                    }, { passive: false });
+
+                    const finishPointerDrag = function(e) {
+                        if (!dragData || e.pointerId !== dragData.pointerId) return;
+                        try { this.releasePointerCapture(e.pointerId); } catch (_) {}
+                        const data = dragData;
+                        dragData = null;
+                        this.style.opacity = '';
+                        this.style.zIndex = '';
+                        this.style.transition = '';
+                        this.style.transform = '';
+                        this.style.borderColor = '';
+
+                        if (!data.moved) {
+                            state.selectedSliceIds.clear();
+                            state.selectedSliceIds.add(data.id);
+                            renderLBTimeline();
+                            showSliceEditor(data.id);
+                            return;
+                        }
+
+                        const oldTrack = state.tracks.find(t => t.id === data.originalTrackId);
+                        const newTrack = state.tracks.find(t => t.id === data.targetTrackId) || oldTrack;
+                        const movedSlice = oldTrack && oldTrack.slices.find(x => x.id === data.id);
+                        if (movedSlice && newTrack) {
+                            if (oldTrack.id !== newTrack.id) {
+                                oldTrack.slices = oldTrack.slices.filter(x => x.id !== data.id);
+                                newTrack.slices.push(movedSlice);
                             }
-                            // Move the slice
-                            const sl = state.tracks.flatMap(t => t.slices).find(s => s.id === dragData.id);
-                            if (sl) {
-                                // Check if we should move to different track
-                                const rect = $('lbTimelineInner').getBoundingClientRect();
-                                const touch = e.changedTouches[0];
-                                const relY = touch.clientY - rect.top;
-                                const trackHeight = 42;
-                                const trackIdx = Math.floor(relY / trackHeight);
-                                if (trackIdx >= 0 && trackIdx < state.tracks.length) {
-                                    const newTrack = state.tracks[trackIdx];
-                                    if (newTrack.id !== dragData.trackId) {
-                                        // Move to different track
-                                        const oldTrack = state.tracks.find(t => t.id === dragData.trackId);
-                                        if (oldTrack) {
-                                            const idx = oldTrack.slices.indexOf(sl);
-                                            if (idx >= 0) oldTrack.slices.splice(idx, 1);
-                                            sl.position = newPos;
-                                            newTrack.slices.push(sl);
-                                            newTrack.slices.sort((a, b) => a.position - b.position);
-                                            checkpoint('Move slice to track');
-                                        }
-                                    } else {
-                                        sl.position = newPos;
-                                        // Re-sort
-                                        const track = state.tracks.find(t => t.id === dragData.trackId);
-                                        if (track) {
-                                            track.slices.sort((a, b) => a.position - b.position);
-                                        }
-                                        checkpoint('Move slice');
-                                    }
-                                }
-                            }
-                            this.style.opacity = '';
-                            this.style.zIndex = '';
-                            this.style.borderColor = '';
+                            movedSlice.position = data.targetPosition;
+                            newTrack.slices.sort((a, b) => a.position - b.position);
+                            checkpoint(oldTrack.id === newTrack.id ? 'Move slice' : 'Move slice to track');
                             renderLBTimeline();
                             renderTrackControls();
-                            setStatus('Slice moved.', 'ok');
+                            setStatus('Slice moved to ' + newTrack.name + ' at beat ' + data.targetPosition.toFixed(2) + '.', 'ok');
                         }
-                        dragData = null;
-                    }, { passive: true });
+                        setTimeout(() => { suppressClick = false; }, 0);
+                    };
 
+                    block.addEventListener('pointerup', finishPointerDrag, { passive: false });
+                    block.addEventListener('pointercancel', finishPointerDrag, { passive: false });
                     row.appendChild(block);
                 }
                 container.appendChild(row);
