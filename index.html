@@ -753,6 +753,66 @@
             color: var(--ink);
         }
 
+        .lb-slice-palette {
+            display: flex;
+            gap: 5px;
+            padding: 6px;
+            margin: 5px 0;
+            overflow-x: auto;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            min-height: 44px;
+            align-items: center;
+            -webkit-overflow-scrolling: touch;
+        }
+        .lb-palette-empty {
+            color: var(--muted);
+            font-size: 11px;
+            padding: 5px;
+        }
+        .lb-palette-slice {
+            flex: 0 0 auto;
+            min-width: 76px;
+            max-width: 130px;
+            min-height: 32px;
+            padding: 5px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--lb-slice-border);
+            background: var(--lb-slice);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            cursor: grab;
+        }
+        .lb-palette-slice:active { cursor: grabbing; }
+        .lb-drag-ghost {
+            position: fixed;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: .85;
+            min-width: 90px;
+            max-width: 150px;
+            padding: 7px 10px;
+            border-radius: 6px;
+            border: 2px solid var(--lb-cursor);
+            background: var(--lb-slice);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            box-shadow: 0 5px 18px rgba(0,0,0,.35);
+        }
+        .lb-timeline-wrap.drop-ready {
+            outline: 3px solid var(--lb-cursor);
+            outline-offset: 2px;
+        }
+
         .lb-track-controls {
             display: flex;
             flex-wrap: wrap;
@@ -1072,6 +1132,11 @@
                     <button id="lbZoomOut" class="small">➖</button>
                     <span id="lbZoomLabel" style="font-size:10px;color:var(--muted);min-width:28px">1×</span>
                 </div>
+            </div>
+
+            <!-- Available slices: drag onto a track, or tap to add -->
+            <div class="lb-slice-palette" id="lbSlicePalette">
+                <span class="lb-palette-empty">Create slices first. They will appear here.</span>
             </div>
 
             <!-- Track controls -->
@@ -2292,6 +2357,7 @@
             state.slices.set(file.id, slices);
             file.sliceData = slices;
             renderSliceResult(file, slices);
+            renderSlicePalette();
             setStatus('Found ' + slices.length + ' slices.', 'ok');
             logInfo('Sliced ' + file.originalName + ' into ' + slices.length + ' slices.');
         }
@@ -2412,11 +2478,116 @@
             };
             track.slices.push(newSlice);
             track.slices.sort((a, b) => a.position - b.position);
+            const requiredBars = Math.ceil((newSlice.position + newSlice.duration) / Timing.beatsPerBar);
+            const currentBars = parseInt($('lbBars').value) || 4;
+            if (requiredBars > currentBars) $('lbBars').value = Math.min(64, requiredBars);
             checkpoint('Add slice');
             renderLBTimeline();
             renderTrackControls();
             setStatus('Added slice to ' + track.name, 'ok');
             return newSlice;
+        }
+
+        function getTimelineDropTarget(clientX, clientY) {
+            const inner = $('lbTimelineInner');
+            if (!inner) return null;
+            const rect = inner.getBoundingClientRect();
+            if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+            const trackHeight = 42;
+            const trackIndex = Math.floor((clientY - rect.top - 20) / trackHeight);
+            if (trackIndex < 0 || trackIndex >= state.tracks.length) return null;
+            const scroll = $('lbTimelineScroll');
+            const localX = clientX - rect.left + (scroll ? scroll.scrollLeft : 0);
+            const ppb = 20 * (state.zoom || 1);
+            let position = Math.max(0, localX / ppb);
+            const snap = parseFloat($('lbSnap').value) || 4;
+            if ($('lbQuantise').checked) position = Timing.quantise(position, snap / 4);
+            return { track: state.tracks[trackIndex], position };
+        }
+
+        function beginPaletteDrag(e, chip, fileId, sliceIdx, label) {
+            if (e.button != null && e.button !== 0) return;
+            e.preventDefault();
+            const startX = e.clientX, startY = e.clientY;
+            let dragging = false;
+            let ghost = null;
+            const pointerId = e.pointerId;
+            try { chip.setPointerCapture(pointerId); } catch (_) {}
+
+            const move = ev => {
+                const dx = ev.clientX - startX, dy = ev.clientY - startY;
+                if (!dragging && Math.hypot(dx, dy) > 6) {
+                    dragging = true;
+                    ghost = document.createElement('div');
+                    ghost.className = 'lb-drag-ghost';
+                    ghost.textContent = label;
+                    document.body.appendChild(ghost);
+                }
+                if (!dragging) return;
+                ev.preventDefault();
+                ghost.style.left = (ev.clientX + 12) + 'px';
+                ghost.style.top = (ev.clientY + 12) + 'px';
+                const target = getTimelineDropTarget(ev.clientX, ev.clientY);
+                $('lbTimelineInner').parentElement.parentElement.classList.toggle('drop-ready', !!target);
+            };
+
+            const finish = ev => {
+                chip.removeEventListener('pointermove', move);
+                chip.removeEventListener('pointerup', finish);
+                chip.removeEventListener('pointercancel', finish);
+                try { chip.releasePointerCapture(pointerId); } catch (_) {}
+                const wrap = $('lbTimelineInner').parentElement.parentElement;
+                wrap.classList.remove('drop-ready');
+                if (ghost) ghost.remove();
+                if (dragging) {
+                    const target = getTimelineDropTarget(ev.clientX, ev.clientY);
+                    if (target) {
+                        addSliceToTrack(target.track.id, fileId, sliceIdx, target.position);
+                        renderSlicePalette();
+                        setStatus('Slice added to ' + target.track.name + '.', 'ok');
+                    } else {
+                        setStatus('Drop the slice inside a timeline track.', 'warn');
+                    }
+                } else {
+                    // Tap fallback for iPad: append to first available track.
+                    const track = state.tracks.find(t => !t.muted) || state.tracks[0];
+                    let position = 0;
+                    if (track && track.slices.length) position = Math.max(...track.slices.map(s => s.position + s.duration * s.stretch / 100));
+                    if (track) addSliceToTrack(track.id, fileId, sliceIdx, position);
+                    renderSlicePalette();
+                }
+            };
+            chip.addEventListener('pointermove', move, { passive: false });
+            chip.addEventListener('pointerup', finish, { passive: false });
+            chip.addEventListener('pointercancel', finish, { passive: false });
+        }
+
+        function renderSlicePalette() {
+            const palette = $('lbSlicePalette');
+            if (!palette) return;
+            palette.innerHTML = '';
+            let count = 0;
+            for (const file of state.files) {
+                const slices = state.slices.get(file.id) || [];
+                slices.forEach((slice, idx) => {
+                    count++;
+                    const chip = document.createElement('div');
+                    chip.className = 'lb-palette-slice';
+                    const base = file.originalName.replace(/\.[^.]+$/, '');
+                    const dur = file.sampleRate ? ((slice.end - slice.start) / file.sampleRate).toFixed(2) : '?';
+                    const label = base + ' ' + (idx + 1) + ' · ' + dur + 's';
+                    chip.textContent = label;
+                    chip.title = 'Drag onto a track, or tap to append';
+                    chip.addEventListener('pointerdown', e => beginPaletteDrag(e, chip, file.id, idx, label), { passive: false });
+                    palette.appendChild(chip);
+                });
+            }
+            if (!count) {
+                const empty = document.createElement('span');
+                empty.className = 'lb-palette-empty';
+                empty.textContent = 'Create slices first. They will appear here.';
+                palette.appendChild(empty);
+            }
         }
 
         function renderTrackControls() {
@@ -3737,7 +3908,8 @@
                     if (panel) panel.classList.add('active');
                     if (this.dataset.panel === 'slice') { updateSliceFileSelect();
                         updateSliceModeUI(); }
-                    if (this.dataset.panel === 'loopbuilder') { renderLBTimeline();
+                    if (this.dataset.panel === 'loopbuilder') { renderSlicePalette();
+                        renderLBTimeline();
                         renderTrackControls(); }
                     if (this.dataset.panel === 'converter') { renderConvQueue(); }
                 });
@@ -4107,6 +4279,7 @@
             renderLibrary();
             updateSliceFileSelect();
             updateSliceModeUI();
+            renderSlicePalette();
             renderLBTimeline();
             renderTrackControls();
             updateUndoButtons();
