@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes">
-    <title>Incredibox Batch Audio Toolkit v2.7 – Loop Builder</title>
+    <title>Incredibox Batch Audio Toolkit v2.7.1 – Loop Builder</title>
     <style>
         /* ─── RESET & VARIABLES ─────────────────────────────────────────────────── */
         * {
@@ -912,7 +912,7 @@
     <div class="app" id="app">
         <!-- ─── HEADER ─────────────────────────────────────────────────────────── -->
         <header>
-            <h1>🎵 Incredibox Batch Audio <small>v2.7 – Loop Builder</small></h1>
+            <h1>🎵 Incredibox Batch Audio <small>v2.7.1 – Loop Builder</small></h1>
             <div class="actions">
                 <button id="btnLbUndo" class="secondary" title="Undo Loop Builder (Ctrl/Cmd+Z)" disabled>↩️ Undo</button>
                 <button id="btnLbRedo" class="secondary" title="Redo Loop Builder (Ctrl/Cmd+Shift+Z)" disabled>↪️ Redo</button>
@@ -3914,7 +3914,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
             // Calculate total duration in seconds for the loop
             const totalBeats = loopBars * 4;
-            const totalSecs = (totalBeats / 4) * (60 / bpm);
+            const totalSecs = totalBeats * (60 / bpm);
             const pixelsPerSec = 120 * lb.zoom; // base zoom
 
             // Get container width
@@ -3930,7 +3930,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
             markers.innerHTML = '';
             const beatsPerBar = 4;
             const totalBeatsAll = loopBars * beatsPerBar;
-            const secsPerBeat = (60 / bpm) / 4;
+            const secsPerBeat = 60 / bpm;
             const pixelsPerBeat = secsPerBeat * pixelsPerSec;
 
             for (let beat = 0; beat <= totalBeatsAll; beat++) {
@@ -4084,7 +4084,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
                         this.style.opacity = '0.7';
                         // Snap indicator
                         const snapVal = parseInt($('lbSnap').value) || 4;
-                        const secsPerSnap = ((60 / bpm) / 4) * (4 / snapVal);
+                        const secsPerSnap = (60 / bpm) * (4 / snapVal);
                         const pixelsPerSnap = secsPerSnap * pixelsPerSec;
                         const snapped = Math.round(newLeft / pixelsPerSnap) * pixelsPerSnap;
                         if (Math.abs(newLeft - snapped) < pixelsPerSnap * 0.15) {
@@ -4101,7 +4101,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
                         // Snap if quantise enabled
                         if ($('lbQuantise').checked) {
                             const snapVal = parseInt($('lbSnap').value) || 4;
-                            const secsPerSnap = ((60 / bpm) / 4) * (4 / snapVal);
+                            const secsPerSnap = (60 / bpm) * (4 / snapVal);
                             const pixelsPerSnap = secsPerSnap * pixelsPerSec;
                             const snapped = Math.round(newLeft / pixelsPerSnap) * pixelsPerSnap;
                             // Move the slice in the timeline order
@@ -4187,7 +4187,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
                 cursor.style.display = 'block';
                 const bpm = parseFloat($('lbBpm').value) || 120;
                 const loopBars = parseInt($('lbLoopBars').value) || 4;
-                const totalSecs = (loopBars * 4 / 4) * (60 / bpm);
+                const totalSecs = loopBars * 4 * (60 / bpm);
                 const pixelsPerSec = 120 * lb.zoom;
                 const totalPixels = totalSecs * pixelsPerSec;
                 const progress = lb.playbackPos / totalSecs;
@@ -4424,7 +4424,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
             if (!lb.timeline.length) { setStatus('No slices on timeline.', 'warn'); return; }
             const bpm = parseFloat($('lbBpm').value) || 120;
             const loopBars = parseInt($('lbLoopBars').value) || 4;
-            const totalSecs = (loopBars * 4 / 4) * (60 / bpm);
+            const totalSecs = loopBars * 4 * (60 / bpm);
             const crossfadeMs = parseFloat($('lbCrossfade').value) || 0;
 
             // Build audio buffer from slices
@@ -4651,7 +4651,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
                 lb.playbackPos = elapsed % totalSecs;
                 const pixelsPerSec = 120 * lb.zoom;
                 const loopBars2 = parseInt($('lbLoopBars').value) || 4;
-                const totalSecs2 = (loopBars2 * 4 / 4) * (60 / bpm);
+                const totalSecs2 = loopBars2 * 4 * (60 / bpm);
                 const totalPixels = totalSecs2 * pixelsPerSec;
                 const progress = lb.playbackPos / totalSecs2;
                 $('lbCursor').style.display = 'block';
@@ -4785,7 +4785,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
             if (!lb.timeline.length) { setStatus('No slices on timeline.', 'warn'); return; }
             const bpm = parseFloat($('lbBpm').value) || 120;
             const loopBars = parseInt($('lbLoopBars').value) || 4;
-            const totalSecs = (loopBars * 4 / 4) * (60 / bpm);
+            const totalSecs = loopBars * 4 * (60 / bpm);
             const crossfadeMs = parseFloat($('lbCrossfade').value) || 0;
             const bitrate = parseInt($('convBitrate').value) || 192;
             const bitDepth = parseInt($('convBitDepth').value) || 16;
@@ -5479,7 +5479,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
                 if (!lb.slices.length) { setStatus('No slices to layout.', 'warn'); return; }
                 const bpm = parseFloat($('lbBpm').value) || 120;
                 const loopBars = parseInt($('lbLoopBars').value) || 4;
-                const totalSecs = (loopBars * 4 / 4) * (60 / bpm);
+                const totalSecs = loopBars * 4 * (60 / bpm);
                 const totalSamples = totalSecs * 44100;
                 // Distribute slices evenly
                 const sorted = [...lb.slices];
@@ -5562,7 +5562,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
                 // Export loop
                 const bpm = parseFloat($('lbBpm').value) || 120;
                 const loopBars = parseInt($('lbLoopBars').value) || 4;
-                const totalSecs = (loopBars * 4 / 4) * (60 / bpm);
+                const totalSecs = loopBars * 4 * (60 / bpm);
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
                 const ctx = new AudioCtx();
                 const sr = 44100;
