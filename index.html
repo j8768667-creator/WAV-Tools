@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes">
-<title>Incredibox Batch Audio Toolkit v1.2.2</title>
+<title>Incredibox Batch Audio Toolkit v1.3.0</title>
 <style>
 /* ── reset & base ── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -90,7 +90,7 @@ button.small{padding:4px 10px;font-size:12px}
 <body>
 <div class="app" id="app">
   <header>
-    <h1>🎵 Incredibox Batch Audio <small>v1.2.2</small></h1>
+    <h1>🎵 Incredibox Batch Audio <small>v1.3.0</small></h1>
     <div class="actions">
       <button id="btnReset" class="danger">🗑 Reset</button>
       <button id="btnTheme">🌓 Theme</button>
@@ -179,8 +179,10 @@ button.small{padding:4px 10px;font-size:12px}
       </div>
     </div>
     <div class="row">
-      <div><label><input type="checkbox" id="chNormalise"> Normalise peak level</label>
-        <select id="normaliseTarget"><option value="-0.1">-0.1 dB</option><option value="-0.5">-0.5 dB</option><option value="-1.0" selected>-1.0 dB</option><option value="-3.0">-3.0 dB</option></select>
+      <div><label><input type="checkbox" id="chNormalise"> Normalise level</label>
+        <select id="normaliseMode"><option value="peak" selected>Peak</option><option value="rms">Average loudness (RMS)</option></select>
+        <select id="normaliseTarget" class="mt-8"><option value="-0.1">-0.1 dB</option><option value="-0.5">-0.5 dB</option><option value="-1.0" selected>-1.0 dB</option><option value="-3.0">-3.0 dB</option><option value="-6.0">-6.0 dB</option><option value="-12.0">-12.0 dB</option></select>
+        <div class="text-muted">Peak matches the loudest sample; RMS matches perceived loudness across a batch of clips.</div>
       </div>
       <div><label><input type="checkbox" id="chTrim"> Trim silence</label>
         <select id="trimThreshold"><option value="-40">-40 dB</option><option value="-50" selected>-50 dB</option><option value="-60">-60 dB</option></select>
@@ -205,8 +207,13 @@ button.small{padding:4px 10px;font-size:12px}
     </div>
     <div class="row">
       <div><label>Concurrency</label>
-        <select id="concurrency"><option value="1">1 file at a time</option><option value="2">2 files at a time</option></select>
+        <select id="concurrency"><option value="1">1 file at a time</option><option value="2">2 files at a time</option><option value="3">3 files at a time</option><option value="4">4 files at a time</option></select>
       </div>
+      <div><label><input type="checkbox" id="chDetectDuplicates" checked> Flag likely-duplicate imports</label>
+        <div class="text-muted">Compares waveform fingerprints after analysis and warns about near-identical files.</div>
+      </div>
+    </div>
+    <div class="row">
       <div><button id="btnResetSettings" class="secondary">↺ Reset Settings to Default</button></div>
     </div>
   </div>
@@ -285,6 +292,7 @@ button.small{padding:4px 10px;font-size:12px}
     <div class="row">
       <button id="btnExportZip" class="primary">📦 Export ZIP</button>
       <button id="btnExportSelected" class="primary">⬇️ Download Selected (individual)</button>
+      <button id="btnExportManifest">📄 Export Manifest (CSV)</button>
     </div>
     <div id="exportStatus" class="status-bar">Ready to export.</div>
     <div id="exportLog" class="text-muted mt-8"></div>
@@ -317,13 +325,13 @@ button.small{padding:4px 10px;font-size:12px}
       <h2>How to use</h2>
       <ol style="margin:12px 0 0 18px;line-height:1.7;color:var(--ink)">
         <li><strong>Import</strong> – select audio files (WAV, MP3, etc.)</li>
-        <li><strong>Analyse</strong> – BPM is estimated automatically, or enter manually</li>
-        <li><strong>Settings</strong> – choose output format, target BPM, preferred duration and loop smoothing.</li>
+        <li><strong>Analyse</strong> – BPM is estimated automatically, or enter manually. This also builds each file's mini waveform and checks for likely duplicate imports.</li>
+        <li><strong>Settings</strong> – choose output format, target BPM, preferred duration, loop smoothing, normalise mode, and how many files to process at once.</li>
         <li><strong>Rename</strong> – batch rename files using tokens and presets</li>
         <li><strong>Process</strong> – convert, time‑stretch, and encode selected files</li>
-        <li><strong>Export</strong> – download a ZIP of all processed files</li>
+        <li><strong>Export</strong> – download a ZIP of all processed files, or a CSV manifest listing every file's BPM, duration, and output details</li>
       </ol>
-      <p style="margin-top:12px;font-size:13px;color:var(--muted)">For loops, leave Fade in and Fade out unticked and enable Smooth loop boundary. All processing is local. No files are uploaded. Works offline.</p>
+      <p style="margin-top:12px;font-size:13px;color:var(--muted)">For loops, leave Fade in and Fade out unticked and enable Smooth loop boundary. Each file card's ▶️ Processed button lets you audition the exact encoded output before exporting. All processing is local. No files are uploaded. Works offline.</p>
       <button id="btnHelpClose" class="primary" style="margin-top:14px">Got it</button>
     </div>
   </div>
@@ -665,6 +673,7 @@ const state = {
     loopSafe: true,
     loopCrossfadeMs: 12,
     normalise: false,
+    normaliseMode: 'peak',
     normaliseTarget: -1.0,
     trim: false,
     trimThreshold: -50,
@@ -676,6 +685,7 @@ const state = {
     channelMode: 'keep',
     sampleRate: '44100',
     concurrency: 1,
+    detectDuplicates: true,
     renameFind: '',
     renameReplace: '',
     renamePrefix: '',
@@ -714,6 +724,9 @@ class AudioFileItem {
     this.sourceBPMOrigin = 'unknown'; // 'filename', 'detected', 'manual', 'unknown'
     this.bpmConfidence = null; // 'high','medium','low','unknown'
     this.alternativeBPMs = [];
+    this.peaks = null;           // downsampled waveform envelope for the mini preview
+    this.fingerprint = null;     // coarse content fingerprint, used for duplicate detection
+    this.duplicateOfNames = [];  // names of other imported files this one closely matches
     this.targetBPM = 120;
     this.selected = true;
     this.trimEnabled = true;
@@ -764,6 +777,7 @@ function toggleTheme(){
   const isDark=document.documentElement.classList.toggle('dark');
   state.settings.theme=isDark?'dark':'light';
   saveSettings();
+  renderFiles();
 }
 
 function applyTheme(){
@@ -804,6 +818,7 @@ function applySettingsToUI(){
   $('chLoopSafe').checked=s.loopSafe!==false;
   $('loopCrossfadeMs').value=s.loopCrossfadeMs??12;
   $('chNormalise').checked=s.normalise;
+  $('normaliseMode').value=s.normaliseMode||'peak';
   $('normaliseTarget').value=String(s.normaliseTarget);
   $('chTrim').checked=s.trim;
   $('trimThreshold').value=String(s.trimThreshold);
@@ -815,6 +830,7 @@ function applySettingsToUI(){
   $('channelMode').value=s.channelMode;
   $('sampleRate').value=String(s.sampleRate);
   $('concurrency').value=s.concurrency;
+  $('chDetectDuplicates').checked=s.detectDuplicates!==false;
   $('renameFind').value=s.renameFind||'';
   $('renameReplace').value=s.renameReplace||'';
   $('renamePrefix').value=s.renamePrefix||'';
@@ -847,6 +863,7 @@ function gatherSettingsFromUI(){
   s.loopSafe=$('chLoopSafe').checked;
   s.loopCrossfadeMs=Math.max(0, parseFloat($('loopCrossfadeMs').value)||0);
   s.normalise=$('chNormalise').checked;
+  s.normaliseMode=$('normaliseMode').value||'peak';
   s.normaliseTarget=parseFloat($('normaliseTarget').value)||-1.0;
   s.trim=$('chTrim').checked;
   s.trimThreshold=parseFloat($('trimThreshold').value)||-50;
@@ -858,6 +875,7 @@ function gatherSettingsFromUI(){
   s.channelMode=$('channelMode').value;
   s.sampleRate=$('sampleRate').value;
   s.concurrency=parseInt($('concurrency').value)||1;
+  s.detectDuplicates=$('chDetectDuplicates').checked;
   s.renameFind=$('renameFind').value;
   s.renameReplace=$('renameReplace').value;
   s.renamePrefix=$('renamePrefix').value;
@@ -1004,6 +1022,9 @@ function renderFiles(){
     const confDisplay=f.bpmConfidence||'unknown';
     const durDisplay=f.duration?f.duration.toFixed(2)+'s':'—';
     const selChecked=f.selected?'checked':'';
+    const isDup=f.duplicateOfNames && f.duplicateOfNames.length>0;
+    const waveHtml=f.peaks ? `<canvas class="wavecanvas" data-id="${f.id}" width="240" height="34" style="width:100%;height:34px;display:block;margin:4px 0;border-radius:6px;background:var(--bg)"></canvas>` : '';
+    const canPreviewOut=f.status==='complete' && f.outputBlob;
     html+=`
       <div class="file-card" data-id="${f.id}">
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
@@ -1014,6 +1035,8 @@ function renderFiles(){
           <div class="meta">${durDisplay} · ${f.sampleRate||'?'} Hz · ${f.channels||'?'}ch · ${(f.size/1024).toFixed(0)} KB</div>
           <div class="meta">BPM: ${bpmDisplay} (${f.sourceBPMOrigin}) ${altDisplay} · conf: ${confDisplay}</div>
           <div class="meta">→ ${escHtml(f.outputName)}</div>
+          ${isDup?`<div class="meta" style="color:var(--warn)">⚠ possible duplicate of: ${escHtml(f.duplicateOfNames.join(', '))}</div>`:''}
+          ${waveHtml}
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span class="status-badge ${statusCls}">${statusLabel}</span>
@@ -1021,12 +1044,22 @@ function renderFiles(){
         </div>
         <div class="actions">
           <button class="small" data-action="bpm" data-id="${f.id}">🎯 BPM</button>
-          <button class="small" data-action="preview" data-id="${f.id}">▶️</button>
+          <button class="small" data-action="preview" data-id="${f.id}">▶️ Original</button>
+          ${canPreviewOut?`<button class="small ok" data-action="previewOut" data-id="${f.id}">▶️ Processed</button>`:''}
           <button class="small secondary" data-action="remove" data-id="${f.id}">✕</button>
         </div>
       </div>`;
   });
   container.innerHTML=html;
+
+  // Waveform mini-previews are drawn after insertion since canvases need a
+  // live 2D context; nothing here reads from outside this render pass.
+  container.querySelectorAll('canvas.wavecanvas').forEach(cv=>{
+    const id=parseInt(cv.dataset.id);
+    const f=state.files.find(x=>x.id===id);
+    if(!f || !f.peaks) return;
+    drawWaveform(cv, f.peaks);
+  });
 
   // events
   container.querySelectorAll('.file-select').forEach(cb=>{
@@ -1055,6 +1088,27 @@ function renderFiles(){
       previewFile(id);
     });
   });
+  container.querySelectorAll('[data-action="previewOut"]').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      const id=parseInt(this.dataset.id);
+      previewProcessed(id);
+    });
+  });
+}
+
+function drawWaveform(canvas, peaks){
+  const ctx2d=canvas.getContext('2d');
+  const w=canvas.width, h=canvas.height, mid=h/2;
+  ctx2d.clearRect(0,0,w,h);
+  const buckets=peaks.length/2;
+  const barW=w/buckets;
+  const isDark=document.documentElement.classList.contains('dark');
+  ctx2d.fillStyle=isDark?'#818cf8':'#4f46e5';
+  for(let b=0;b<buckets;b++){
+    const mn=peaks[b*2], mx=peaks[b*2+1];
+    const y1=mid-mx*mid, y2=mid-mn*mid;
+    ctx2d.fillRect(b*barW, y1, Math.max(1,barW-0.5), Math.max(1, y2-y1));
+  }
 }
 
 function escHtml(s){
@@ -1095,17 +1149,85 @@ function editBPM(id){
   saveSettings();
 }
 
+// ─── Waveform preview + duplicate fingerprinting ───────────────
+// Both features reuse the same lightweight scan of a decoded buffer, so an
+// already-decoded file gets a mini waveform for its file card and a coarse
+// content fingerprint for duplicate detection at essentially no extra cost.
+function computeWaveformData(buffer){
+  const data=buffer.getChannelData(0);
+  const len=data.length;
+  const bucketsForDisplay=120;
+  const peaks=new Float32Array(bucketsForDisplay*2); // [min,max] per bucket
+  const bucketSize=Math.max(1, Math.floor(len/bucketsForDisplay));
+  for(let b=0;b<bucketsForDisplay;b++){
+    let mn=1, mx=-1;
+    const start=b*bucketSize, end=Math.min(len, start+bucketSize);
+    if(end<=start){ mn=0; mx=0; }
+    else{ for(let i=start;i<end;i++){ const v=data[i]; if(v<mn) mn=v; if(v>mx) mx=v; } }
+    peaks[b*2]=mn; peaks[b*2+1]=mx;
+  }
+  // Coarse RMS envelope, normalised to its own peak so loudness differences
+  // between two otherwise-identical clips don't prevent a match.
+  const fpLen=48;
+  const fp=new Float32Array(fpLen);
+  const segSize=Math.max(1, Math.floor(len/fpLen));
+  let fpMax=0;
+  for(let s=0;s<fpLen;s++){
+    const start=s*segSize, end=Math.min(len, start+segSize);
+    let sum=0, count=0;
+    for(let i=start;i<end;i++){ sum+=data[i]*data[i]; count++; }
+    const rms=count?Math.sqrt(sum/count):0;
+    fp[s]=rms;
+    if(rms>fpMax) fpMax=rms;
+  }
+  if(fpMax>0) for(let s=0;s<fpLen;s++) fp[s]/=fpMax;
+  return {peaks, fingerprint:fp};
+}
+
+function fingerprintSimilarity(a, b){
+  if(!a || !b || a.length!==b.length) return 0;
+  let sumDiff=0;
+  for(let i=0;i<a.length;i++) sumDiff+=Math.abs(a[i]-b[i]);
+  return Math.max(0, 1-(sumDiff/a.length));
+}
+
+function detectDuplicates(){
+  const items=state.files.filter(f=>f.fingerprint && f.duration);
+  items.forEach(f=>{ f.duplicateOfNames=[]; });
+  const flagged=new Set();
+  for(let i=0;i<items.length;i++){
+    for(let j=i+1;j<items.length;j++){
+      const a=items[i], b=items[j];
+      const durRatio=Math.abs(a.duration-b.duration)/Math.max(a.duration,b.duration);
+      if(durRatio>0.15) continue; // very different lengths: not worth comparing
+      const sim=fingerprintSimilarity(a.fingerprint, b.fingerprint);
+      if(sim>0.93){
+        a.duplicateOfNames.push(b.originalName);
+        b.duplicateOfNames.push(a.originalName);
+        flagged.add(a.originalName); flagged.add(b.originalName);
+      }
+    }
+  }
+  if(flagged.size) logWarn('Possible duplicate audio detected among: '+Array.from(flagged).join(', '));
+  return flagged.size;
+}
+
 // ─── BPM Analysis ──────────────────────────────────────────────
-async function analyseBPMForFile(item){
+async function analyseBPMForFile(item, sharedCtx){
   if(item.status==='failed') return;
+  const ownCtx=!sharedCtx;
   try{
     item.status='loading';
     renderFiles();
-    const audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const audioCtx=sharedCtx||new (window.AudioContext||window.webkitAudioContext)();
     const buf=await audioCtx.decodeAudioData(await item.file.arrayBuffer());
     item.duration=buf.duration;
     item.sampleRate=buf.sampleRate;
     item.channels=buf.numberOfChannels;
+
+    const wf=computeWaveformData(buf);
+    item.peaks=wf.peaks;
+    item.fingerprint=wf.fingerprint;
 
     // Only analyse if BPM not already manually set or from filename
     if(item.sourceBPMOrigin!=='manual' && item.sourceBPMOrigin!=='filename'){
@@ -1120,7 +1242,7 @@ async function analyseBPMForFile(item){
       }
     }
     item.status='ready';
-    try{await audioCtx.close();}catch(e){}
+    if(ownCtx){ try{await audioCtx.close();}catch(e){} }
     logInfo('Analysed: '+item.originalName+' BPM='+(item.sourceBPM||'?'));
   }catch(e){
     item.status='failed';
@@ -1162,9 +1284,19 @@ function detectBPM(buffer){
       rms=Math.sqrt(rms/frameSize);
       env.push(rms);
     }
-    // Peak detection
+    // Peak detection. The threshold is scaled to this file's own envelope
+    // rather than a fixed absolute level, since a quiet recording (e.g. a
+    // -18dB mastered loop) would otherwise never cross a fixed 0.3 and would
+    // always fail to detect a BPM, while a hot recording could pick up too
+    // many spurious peaks.
+    let envMax=0;
+    for(let i=0;i<env.length;i++) if(env[i]>envMax) envMax=env[i];
+    if(envMax<1e-6){
+      resolve({bpm:null,confidence:'low',alternatives:[]});
+      return;
+    }
+    const threshold=envMax*0.35;
     const peaks=[];
-    const threshold=0.3;
     for(let i=1;i<env.length-1;i++){
       if(env[i]>threshold && env[i]>env[i-1] && env[i]>env[i+1]){
         peaks.push(i);
@@ -1268,7 +1400,7 @@ async function processFile(item){
     data=smoothLoopBoundary(data, sr, s.loopCrossfadeMs/1000);
   }
 
-  if(s.normalise) data=normalisePeak(data, s.normaliseTarget);
+  if(s.normalise) data=(s.normaliseMode==='rms') ? normaliseRMS(data, s.normaliseTarget) : normalisePeak(data, s.normaliseTarget);
   if(s.fadeIn && s.fadeInMs>0) data=applyFade(data, sr, s.fadeInMs/1000, 'in');
   if(s.fadeOut && s.fadeOutMs>0) data=applyFade(data, sr, s.fadeOutMs/1000, 'out');
 
@@ -1428,6 +1560,37 @@ function normalisePeak(data, targetDb){
   }
   if(peak<0.00001) return data;
   const gain=target/peak;
+  const out=data.map(ch=>{
+    const newCh=new Float32Array(ch.length);
+    for(let i=0;i<ch.length;i++) newCh[i]=ch[i]*gain;
+    return newCh;
+  });
+  return out;
+}
+
+// Matches perceived loudness (RMS) rather than the single loudest sample.
+// Useful when batch-normalising a set of clips recorded at different levels,
+// since peak normalising alone can leave quiet-sounding clips much louder or
+// quieter than others even after their peaks match.
+function normaliseRMS(data, targetDb){
+  const target=Math.pow(10, targetDb/20);
+  let sumSquares=0, count=0, peak=0;
+  for(const ch of data){
+    for(let i=0;i<ch.length;i++){
+      const v=ch[i];
+      sumSquares+=v*v;
+      count++;
+      const a=Math.abs(v);
+      if(a>peak) peak=a;
+    }
+  }
+  if(count===0) return data;
+  const rms=Math.sqrt(sumSquares/count);
+  if(rms<0.00001) return data;
+  let gain=target/rms;
+  // Safety clamp: never let the RMS match push the true peak past full scale,
+  // which would clip. Back the gain off to just touch 0 dBFS instead.
+  if(peak*gain>0.999) gain=0.999/peak;
   const out=data.map(ch=>{
     const newCh=new Float32Array(ch.length);
     for(let i=0;i<ch.length;i++) newCh[i]=ch[i]*gain;
@@ -1750,6 +1913,45 @@ async function exportZIP(){
   }
 }
 
+function csvEscape(v){
+  const s=String(v==null?'':v);
+  return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+
+// A manifest is useful for tracking a batch through a pipeline (e.g. importing
+// into a game engine or Incredibox-style asset list) without having to
+// re-open every file to see what BPM or settings produced it.
+function exportManifestCSV(){
+  if(!state.files.length){ setStatus('No files to include in a manifest.', 'err'); return; }
+  const cols=['Original Name','Output Name','Status','Source BPM','BPM Origin','BPM Confidence','Target BPM','Duration (s)','Sample Rate','Channels','Output Format','Output Size (bytes)','Possible Duplicate Of'];
+  const rows=[cols.map(csvEscape).join(',')];
+  state.files.forEach(f=>{
+    rows.push([
+      f.originalName,
+      f.outputName,
+      f.status,
+      f.sourceBPM||'',
+      f.sourceBPMOrigin||'',
+      f.bpmConfidence||'',
+      f.targetBPM||'',
+      f.duration!=null?f.duration.toFixed(3):'',
+      f.sampleRate||'',
+      f.channels||'',
+      f.outputFormat||'',
+      f.outputSize||'',
+      (f.duplicateOfNames||[]).join('; ')
+    ].map(csvEscape).join(','));
+  });
+  const blob=new Blob([rows.join('\n')], {type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='audio_batch_manifest.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  setStatus('Manifest exported for '+state.files.length+' file(s).', 'ok');
+  logInfo('Manifest CSV exported.');
+}
+
 // ─── Preview ────────────────────────────────────────────────────
 let previewCtx=null;
 let previewSource=null;
@@ -1809,6 +2011,36 @@ function stopPreview(){
   previewFileId=null;
 }
 
+// Plays back the exact encoded output blob (post trim/normalise/stretch/loop
+// smoothing/encode), so the result can be A/B'd against the original with
+// the ▶️ Original button before exporting.
+async function previewProcessed(id){
+  const f=state.files.find(x=>x.id===id);
+  if(!f || !f.outputBlob) return;
+  stopPreview();
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const buffer=await ctx.decodeAudioData(await f.outputBlob.arrayBuffer());
+    previewCtx=ctx;
+    const src=ctx.createBufferSource();
+    src.buffer=buffer;
+    const gain=ctx.createGain();
+    gain.gain.value=0.7;
+    src.connect(gain);
+    gain.connect(ctx.destination);
+    src.start();
+    previewSource=src;
+    previewGain=gain;
+    previewActive=true;
+    previewFileId=id;
+    setStatus('Previewing processed output: '+f.originalName, 'ok');
+    src.onended=()=>{ previewActive=false; setStatus('Preview ended.', 'ok'); };
+    logInfo('Preview (processed): '+f.originalName);
+  }catch(e){
+    setStatus('Preview failed: '+e.message, 'err');
+  }
+}
+
 // ─── Processing Pipeline ───────────────────────────────────────
 async function processSelected(){
   gatherSettingsFromUI();
@@ -1822,19 +2054,27 @@ async function processSelected(){
   }
   state.processing=true; state.cancelled=false;
   $('processingBar').classList.remove('hidden'); $('pbCancel').disabled=false;
-  let completed=0, failed=0; const total=selected.length;
+  let completed=0, failed=0, done=0; const total=selected.length;
   const AudioCtx=window.AudioContext||window.webkitAudioContext;
-  for(let index=0;index<selected.length;index++){
-    const item=selected[index];
-    if(state.cancelled) break;
+  // A single shared context for the whole batch avoids hitting the browser's
+  // limit on concurrently-open AudioContexts once more than one file at a
+  // time is processed, and is cheaper than opening/closing one per file.
+  const ctx=new AudioCtx();
+  const conc=Math.max(1, Math.min(4, state.settings.concurrency||1));
+
+  async function runOne(item){
+    if(state.cancelled) return;
     item.outputBlob=null; item.outputSize=null; item.progress=0; item.error=null; item.status='loading';
-    $('pbInfo').textContent='Processing '+(index+1)+' of '+total+': '+item.originalName;
     renderFiles();
-    let ctx=null;
     try{
-      ctx=new AudioCtx();
       item.decodedBuffer=await ctx.decodeAudioData(await item.file.arrayBuffer());
       item.duration=item.decodedBuffer.duration; item.sampleRate=item.decodedBuffer.sampleRate; item.channels=item.decodedBuffer.numberOfChannels;
+
+      // Cache a waveform preview + duplicate fingerprint from this decode, so
+      // Process Selected alone (without a separate Analyse pass first) still
+      // populates the file card's mini waveform and duplicate check.
+      const wf=computeWaveformData(item.decodedBuffer);
+      item.peaks=wf.peaks; item.fingerprint=wf.fingerprint;
 
       // Automatically estimate a missing source BPM when tempo changing is enabled.
       // This keeps Process Selected from failing merely because Analyse Selected was
@@ -1842,7 +2082,6 @@ async function processSelected(){
       const needsSourceBPM=state.settings.tempoChange && state.settings.tempoMode!=='keep';
       if(needsSourceBPM && (!item.sourceBPM || item.sourceBPM<40 || item.sourceBPM>300)){
         item.status='analysing'; item.progress=20; renderFiles();
-        $('pbInfo').textContent='Detecting BPM for '+item.originalName+'…';
         const bpmResult=await detectBPM(item.decodedBuffer);
         if(bpmResult && bpmResult.bpm>=40 && bpmResult.bpm<=300){
           item.sourceBPM=bpmResult.bpm;
@@ -1861,17 +2100,39 @@ async function processSelected(){
     }catch(e){
       item.status=state.cancelled?'warning':'failed'; item.error=e.message; item.decodedBuffer=null; failed++;
       logError('Process failed for '+item.originalName+': '+e.message);
-    }finally{ if(ctx) try{await ctx.close();}catch(e){} }
-    const done=index+1, pct=Math.round(done/total*100);
+    }
+    done++;
+    const pct=Math.round(done/total*100);
+    $('pbInfo').textContent='Processed '+done+' of '+total+(conc>1?' (up to '+conc+' at once)':'')+'…';
     $('pbFill').style.width=pct+'%'; $('pbPercent').textContent=pct+'%';
     $('processFill').style.width=pct+'%';
     $('processDetails').textContent='Completed: '+completed+' / '+total+'  Failed: '+failed;
     renderFiles(); updateCounts();
     await new Promise(r=>setTimeout(r,0));
   }
+
+  try{
+    for(let i=0;i<selected.length;i+=conc){
+      if(state.cancelled) break;
+      const chunk=selected.slice(i, i+conc);
+      await Promise.all(chunk.map(runOne));
+    }
+  } finally {
+    try{await ctx.close();}catch(e){}
+  }
+
   state.processing=false; $('processingBar').classList.add('hidden');
   if(state.cancelled){ setStatus('Processing cancelled.','warn'); logInfo('Processing cancelled.'); }
-  else { const firstFailure=selected.find(f=>f.status==='failed' && f.error); setStatus('Processing complete: '+completed+' done, '+failed+' failed.'+(firstFailure?' '+firstFailure.error:''),failed?'warn':'ok'); logInfo('Processing complete: '+completed+' done, '+failed+' failed.'); }
+  else {
+    let dupMsg='';
+    if(state.settings.detectDuplicates!==false){
+      const flaggedCount=detectDuplicates();
+      if(flaggedCount) dupMsg=' '+flaggedCount+' possible duplicate(s) flagged.';
+    }
+    const firstFailure=selected.find(f=>f.status==='failed' && f.error);
+    setStatus('Processing complete: '+completed+' done, '+failed+' failed.'+(firstFailure?' '+firstFailure.error:'')+dupMsg,(failed||dupMsg)?'warn':'ok');
+    logInfo('Processing complete: '+completed+' done, '+failed+' failed.');
+  }
   renderFiles(); updateCounts();
 }
 
@@ -1963,13 +2224,27 @@ function initUI(){
 
   // Process
   $('btnAnalyse').addEventListener('click', async ()=>{
+    gatherSettingsFromUI();
     const selected=state.files.filter(f=>f.selected);
     if(!selected.length){ setStatus('No files selected.', 'warn'); return; }
     setStatus('Analysing '+selected.length+' files...', 'ok');
-    for(const f of selected){
-      await analyseBPMForFile(f);
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    const ctx=new AudioCtx();
+    const conc=Math.max(1, Math.min(4, state.settings.concurrency||1));
+    try{
+      for(let i=0;i<selected.length;i+=conc){
+        const chunk=selected.slice(i, i+conc);
+        await Promise.all(chunk.map(f=>analyseBPMForFile(f, ctx)));
+      }
+    } finally {
+      try{await ctx.close();}catch(e){}
     }
-    setStatus('Analysis complete.', 'ok');
+    let dupMsg='';
+    if(state.settings.detectDuplicates!==false){
+      const flaggedCount=detectDuplicates();
+      if(flaggedCount) dupMsg=' '+flaggedCount+' possible duplicate(s) flagged.';
+    }
+    setStatus('Analysis complete.'+dupMsg, dupMsg?'warn':'ok');
     renderFiles();
   });
   $('btnProcess').addEventListener('click', processSelected);
@@ -1991,6 +2266,7 @@ function initUI(){
 
   // Export
   $('btnExportZip').addEventListener('click', exportZIP);
+  $('btnExportManifest').addEventListener('click', exportManifestCSV);
   $('btnExportSelected').addEventListener('click', ()=>{
     const complete=state.files.filter(f=>f.selected && f.status==='complete' && f.outputBlob);
     if(!complete.length){ setStatus('No processed files selected.', 'err'); return; }
