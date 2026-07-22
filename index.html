@@ -4097,6 +4097,7 @@
         function boot() {
             loadSettings();
             initTracks();
+            initUI();
             const loaded = loadLBSettings();
             if (loaded) {
                 logInfo('Loaded saved project.');
