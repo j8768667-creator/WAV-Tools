@@ -2441,7 +2441,7 @@
             }
         }
 
-        function addSliceToTrack(trackId, fileId, sliceIdx, position) {
+        function addSliceToTrack(trackId, fileId, sliceIdx, position, options = {}) {
             const file = state.files.find(f => f.id === fileId);
             if (!file) { setStatus('File not found.', 'err'); return; }
             const slices = state.slices.get(fileId);
@@ -2481,11 +2481,43 @@
             const requiredBars = Math.ceil((newSlice.position + newSlice.duration) / Timing.beatsPerBar);
             const currentBars = parseInt($('lbBars').value) || 4;
             if (requiredBars > currentBars) $('lbBars').value = Math.min(64, requiredBars);
-            checkpoint('Add slice');
-            renderLBTimeline();
-            renderTrackControls();
-            setStatus('Added slice to ' + track.name, 'ok');
+            if (!options.silent) {
+                checkpoint('Add slice');
+                renderLBTimeline();
+                renderTrackControls();
+                setStatus('Added slice to ' + track.name, 'ok');
+            }
             return newSlice;
+        }
+
+        function addSlicesToTrackBatch(trackId, fileId, indices) {
+            const track = state.tracks.find(t => t.id === trackId);
+            const slices = state.slices.get(fileId);
+            if (!track || !slices || !indices.length) return 0;
+
+            let position = track.slices.length
+                ? Math.max(...track.slices.map(s => s.position + s.duration * s.stretch / 100))
+                : 0;
+            let added = 0;
+
+            for (const index of indices) {
+                if (!Number.isInteger(index) || index < 0 || index >= slices.length) continue;
+                const inserted = addSliceToTrack(trackId, fileId, index, position, { silent: true });
+                if (!inserted) continue;
+                position = inserted.position + inserted.duration * inserted.stretch / 100;
+                added++;
+            }
+
+            if (added) {
+                const requiredBars = Math.max(1, Math.ceil(position / Timing.beatsPerBar));
+                const currentBars = parseInt($('lbBars').value) || 4;
+                if (requiredBars > currentBars) $('lbBars').value = Math.min(64, requiredBars);
+                checkpoint('Add slices');
+                renderLBTimeline();
+                renderTrackControls();
+                saveSettings();
+            }
+            return added;
         }
 
         function getTimelineDropTarget(clientX, clientY) {
@@ -3962,16 +3994,8 @@
                 if (!slices || !slices.length) { setStatus('No slices.', 'warn'); return; }
                 const track = state.tracks.find(t => !t.muted);
                 if (!track) { setStatus('All tracks muted.', 'warn'); return; }
-                let pos = 0;
-                for (const t of state.tracks) {
-                    if (t.slices.length) pos = Math.max(pos, ...t.slices.map(s => s.position + s.duration * s.stretch /
-                        100));
-                }
-                for (let i = 0; i < slices.length; i++) {
-                    const sl = addSliceToTrack(track.id, f.id, i, pos);
-                    if (sl) pos += sl.duration * sl.stretch / 100 + 0.2;
-                }
-                setStatus('Added ' + slices.length + ' slices to ' + track.name, 'ok');
+                const added = addSlicesToTrackBatch(track.id, f.id, slices.map((_, i) => i));
+                setStatus('Added ' + added + ' slices to ' + track.name + '.', added === slices.length ? 'ok' : 'warn');
             });
             $('btnAddSelectedToLoop').addEventListener('click', () => {
                 const f = getSliceFile();
@@ -3984,17 +4008,8 @@
                 checks.forEach(cb => indices.push(parseInt(cb.dataset.idx)));
                 const track = state.tracks.find(t => !t.muted);
                 if (!track) { setStatus('All tracks muted.', 'warn'); return; }
-                let pos = 0;
-                for (const t of state.tracks) {
-                    if (t.slices.length) pos = Math.max(pos, ...t.slices.map(s => s.position + s.duration * s.stretch /
-                        100));
-                }
-                for (const idx of indices) {
-                    if (idx >= slices.length) continue;
-                    const sl = addSliceToTrack(track.id, f.id, idx, pos);
-                    if (sl) pos += sl.duration * sl.stretch / 100 + 0.2;
-                }
-                setStatus('Added ' + indices.length + ' slices to ' + track.name, 'ok');
+                const added = addSlicesToTrackBatch(track.id, f.id, indices);
+                setStatus('Added ' + added + ' selected slices to ' + track.name + '.', added === indices.length ? 'ok' : 'warn');
             });
             $('btnExportSlices').addEventListener('click', async () => {
                 const f = getSliceFile();
@@ -4244,8 +4259,14 @@
                 try {
                     const s = slices[i];
                     const blob = await sliceBufferToBlob(buffer, s.start, s.end, format, bitrate, bitDepth, s);
-                    const item = new AudioFileItem(new File([blob], base + '_slice' + (i + 1).toString().padStart(2,
-                        '0') + '.' + (format === 'mp3' ? 'mp3' : 'wav'), { type: blob.type }));
+                    const generatedName = base + '_slice' + (i + 1).toString().padStart(2, '0') + '.' + (format === 'mp3' ? 'mp3' : 'wav');
+                    const expectedDuration = (s.end - s.start) / buffer.sampleRate;
+                    const duplicate = state.files.find(existing => existing.originalName === generatedName && Math.abs((existing.duration || 0) - expectedDuration) < 0.01);
+                    if (duplicate) {
+                        created.push(duplicate);
+                        continue;
+                    }
+                    const item = new AudioFileItem(new File([blob], generatedName, { type: blob.type }));
                     item.duration = (s.end - s.start) / buffer.sampleRate;
                     item.sampleRate = buffer.sampleRate;
                     item.channels = buffer.numberOfChannels;
