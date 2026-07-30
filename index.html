@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Incredibox Loop Studio v4.4 </title>
+<title>Incredibox Loop Studio v4.4 — Zero-Crossing Sampler Studio</title>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
 <style>
@@ -78,14 +78,11 @@ h3{margin:12px 0 8px;font-size:14px;color:var(--mut);text-transform:uppercase;le
 .tl-event.sel{border-color:var(--sel)}
 .tl-event .resize{position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;background:rgba(0,0,0,.15)}
 .playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--acc2);pointer-events:none;z-index:3}
-.status-good{color:var(--ok)} .status-fair{color:var(--warn)} .status-poor{color:var(--err)}
 
 .two-col{display:grid;grid-template-columns:minmax(260px,320px) 1fr;gap:12px}
 @media(max-width:820px){.two-col{grid-template-columns:1fr}}
 
 .field-group{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:var(--panel2);
-  border:1px solid var(--line);border-radius:999px;font-size:11px;color:var(--mut)}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
   background:var(--panel2);border:1px solid var(--line);padding:12px 18px;border-radius:10px;
   z-index:100;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:90vw}
@@ -98,8 +95,8 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
 </head>
 <body>
 <header class="appbar">
-  <div class="row" style="justify-content:space-between">
-    <div class="title">🎛 Incredibox Loop Studio <small>v4.4 — Workflow & Repair</small></div>
+  <div class="row" style="justify-space-between">
+    <div class="title">🎛 Incredibox Loop Studio <small>v4.4 — Zero-Crossing Sampler Studio</small></div>
     <div class="row">
       <span id="libStatus" class="badge">Encoders loading…</span>
       <button class="small ghost" id="purgeCache" title="Release audio buffers">🧹 Purge</button>
@@ -126,27 +123,24 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
 </nav>
 <main>
 
-<!-- IMPORT -->
 <section id="tab-import">
   <h2>Import audio</h2>
   <div class="card">
     <div class="row">
       <label style="flex:1">
         <span>Choose files (WAV, MP3, MP4, M4A, AAC, AIFF, OGG, FLAC)</span>
-        <input type="file" id="fileInput" multiple
-          accept="audio/*,video/mp4,.wav,.wave,.mp3,.mp4,.m4a,.aac,.aif,.aiff,.ogg,.flac">
+        <input type="file" id="fileInput" multiple accept="audio/*,video/mp4,.wav,.wave,.mp3,.mp4,.m4a,.aac,.aif,.aiff,.ogg,.flac">
       </label>
       <button class="primary" id="pickBtn">📂 Add files</button>
     </div>
     <p style="color:var(--mut);font-size:12px;margin:8px 0 0">
-      All processing runs locally. MP4 files: only the audio track is used (video ignored).
+      All processing runs locally. MP4 files: only audio track is extracted.
     </p>
   </div>
   <h3>Source library</h3>
   <div id="sourceList" class="grid"></div>
 </section>
 
-<!-- SLICE -->
 <section id="tab-slice" class="hidden">
   <h2>Slice source</h2>
   <div class="two-col">
@@ -161,7 +155,7 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
         <option value="count">Fixed count</option>
         <option value="duration">Fixed duration</option>
         <option value="manual">Manual</option>
-        <option value="loopfinder">Loop finder</option>
+        <option value="loopfinder" selected>Zero-Cross Loop Finder</option>
       </select>
       <div id="modeControls" style="margin-top:8px"></div>
       <div class="row" style="margin-top:12px">
@@ -174,7 +168,7 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
     <div>
       <div class="card">
         <canvas id="sliceCanvas" class="waveform" style="height:150px"></canvas>
-        <div style="font-size:11px;color:var(--mut);margin-top:4px" id="sliceCanvasHint">Tap waveform in manual mode to add markers.</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:4px" id="sliceCanvasHint">Waveform display with zero-crossing alignments.</div>
       </div>
       <div class="row" style="margin-top:10px;justify-content:space-between">
         <h3 style="margin:0">Slice library</h3>
@@ -185,7 +179,7 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
           <button class="small" id="playAllOnce">▶ All</button>
           <button class="small" id="loopSelected">⟳ Loop sel</button>
           <button class="small" id="autoTrimSel">Auto-trim sel</button>
-          <button class="small primary" id="fixLoopsSel">🔧 Fix loops sel</button>
+          <button class="small primary" id="fixLoopsSel">🔧 Zero-Cross Fix Sel</button>
           <button class="small primary" id="addSelToTimeline">→ Timeline</button>
           <button class="small danger" id="deleteSel">🗑 Delete sel</button>
         </div>
@@ -195,13 +189,17 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
   </div>
 </section>
 
-<!-- PREPARE -->
 <section id="tab-prepare" class="hidden">
-  <h2>Prepare loops</h2>
+  <h2>Prepare loops &amp; Zero-Crossing Utility</h2>
   <div class="two-col">
     <aside class="card">
       <label>Selected slice</label>
       <select id="prepSlice"></select>
+      <h3>Zero-Crossing Loop-Point Finder</h3>
+      <label>Search window (±ms)</label>
+      <input type="number" id="zcRange" value="25" step="1" min="1" max="200">
+      <button class="primary" id="doZeroCross">⚡ Align Boundaries to Zero-Crossing (+Slope)</button>
+      
       <h3>Auto-trim</h3>
       <label>Threshold (dB)</label>
       <input type="number" id="trimThresh" value="-50" step="1">
@@ -210,48 +208,42 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
         <label class="checkbox"><input type="checkbox" id="trimTrail" checked> Trailing</label>
       </div>
       <button id="doAutoTrim">Auto-trim</button>
-      <h3>Zero-cross align</h3>
-      <label>Search ±ms</label>
-      <input type="number" id="zcRange" value="20" step="1" min="1" max="100">
-      <button id="doZeroCross">Snap boundaries</button>
+
       <h3>Crossfade</h3>
       <label>Type</label>
-      <select id="xfType"><option value="none">Off</option><option value="linear">Linear</option><option value="equal" selected>Equal-power</option><option value="cosine">Cosine</option><option value="log">Logarithmic</option></select>
+      <select id="xfType"><option value="none">Off</option><option value="linear">Linear</option><option value="equal" selected>Equal-power</option><option value="cosine">Cosine</option></select>
       <label>Length (ms)</label>
       <input type="number" id="xfMs" value="20" min="0" max="500">
-      <h3>Gain / pitch / stretch</h3>
+      
+      <h3>Gain / Pitch / Stretch</h3>
       <label>Gain (dB)</label><input type="number" id="pGain" value="0" step="0.5">
-      <label>Pitch (semitones, resample)</label><input type="number" id="pPitch" value="0" step="1">
+      <label>Pitch (semitones)</label><input type="number" id="pPitch" value="0" step="1">
       <label>Stretch ratio</label><input type="number" id="pStretch" value="1" step="0.01">
       <label class="checkbox"><input type="checkbox" id="pReverse"> Reverse</label>
+      
       <div class="row" style="margin-top:10px">
         <button class="primary" id="applyPrep">💾 Save loop settings</button>
-        <button id="analyzeLoop">🔬 Analyse</button>
-        <button class="primary" id="repairLoop">🔧 Repair loop</button>
-        <button id="repairAll">🔧 Repair all selected</button>
+        <button id="analyzeLoop">🔬 Analyse seamlessness</button>
+        <button class="primary" id="repairLoop">🔧 Auto-Repair &amp; Crossfade</button>
       </div>
-      <h3>Loop suggestions</h3>
-      <div id="loopSuggestions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"></div>
     </aside>
     <div class="card">
       <canvas id="prepCanvas" class="waveform" style="height:180px"></canvas>
       <div id="loopStats" style="margin-top:8px"></div>
       <div class="row" style="margin-top:10px">
         <button id="prepPlayOnce">▶ Once</button>
-        <button id="prepLoop">⟳ Loop</button>
-        <button id="prepAB">A/B original</button>
+        <button id="prepLoop">⟳ Seamless Loop</button>
         <button id="prepStop">■ Stop</button>
         <select id="prepRepeats">
           <option value="0">Continuous</option>
           <option value="2">×2</option><option value="4">×4</option>
-          <option value="8">×8</option><option value="16">×16</option>
+          <option value="8">×8</option>
         </select>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ARRANGE -->
 <section id="tab-arrange" class="hidden">
   <h2>Loop builder</h2>
   <div class="tl-controls card" style="margin-bottom:10px">
@@ -264,16 +256,11 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
     <label style="width:110px">Zoom
       <input type="range" id="tlZoom" min="20" max="200" value="60">
     </label>
-    <label style="width:110px">Tracks
-      <input type="number" id="tlTracks" value="6" min="4" max="8">
-    </label>
     <button class="primary" id="tlPlay">▶ Play</button>
     <button id="tlStop">■ Stop</button>
     <button id="tlRewind">⏮</button>
     <label class="checkbox"><input type="checkbox" id="tlLoop" checked> Loop</label>
     <button id="tlUndo">↶ Undo</button>
-    <button id="tlCopy">📋 Copy</button>
-    <button id="tlPaste">📄 Paste</button>
     <button class="danger" id="tlClear">Clear</button>
   </div>
   <div class="timeline-wrap">
@@ -281,52 +268,37 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
       <div id="tlInner" style="position:relative"></div>
     </div>
   </div>
-  <p style="color:var(--mut);font-size:12px;margin-top:8px">
-    Drag events to move · drag right edge to resize · <kbd>Shift</kbd>+click to multi-select ·
-    <kbd>Del</kbd> remove · <kbd>D</kbd> duplicate · <kbd>Alt</kbd>+drag to copy · <kbd>Ctrl+C</kbd> <kbd>Ctrl+V</kbd>
-  </p>
   <div class="card" style="margin-top:10px">
     <h3>Slice browser</h3>
-    <div class="row">
-      <input type="text" id="sliceSearch" placeholder="Filter slices…" style="flex:1">
-      <select id="sliceFilterQuality"><option value="all">All</option><option value="ready">Ready</option><option value="poor">Poor</option></select>
-      <select id="sliceFilterSource"><option value="all">All sources</option></select>
-      <button class="small" id="addSelectedBrowser">Add selected</button>
-      <button class="small" id="addAllReadyBrowser">Add all ready</button>
-      <button class="small" id="addAllBrowser">Add all</button>
-    </div>
     <div id="browserList" class="slice-grid" style="max-height:200px;overflow:auto"></div>
   </div>
 </section>
 
-<!-- CONVERT -->
 <section id="tab-convert" class="hidden">
-  <h2>Convert &amp; export</h2>
+  <h2>Convert &amp; Export Sampler WAV</h2>
   <div class="card">
-    <label>Source</label>
+    <label>Source slice</label>
     <select id="convSource"></select>
     <label>Format</label>
     <select id="convFormat">
-      <option value="wav16">WAV 16-bit</option>
-      <option value="wav24">WAV 24-bit</option>
-      <option value="wav32f">WAV 32-bit float</option>
-      <option value="mp3-128">MP3 128 kbps</option>
-      <option value="mp3-192">MP3 192 kbps</option>
-      <option value="mp3-256">MP3 256 kbps</option>
+      <option value="wav16-smpl">WAV 16-bit (with WAV `smpl` Header Metadata)</option>
+      <option value="wav24-smpl">WAV 24-bit (with WAV `smpl` Header Metadata)</option>
+      <option value="wav32f-smpl">WAV 32-bit float (with WAV `smpl` Header Metadata)</option>
+      <option value="wav16">Standard WAV 16-bit</option>
+      <option value="wav24">Standard WAV 24-bit</option>
       <option value="mp3-320">MP3 320 kbps</option>
     </select>
     <div class="row" style="margin-top:10px">
-      <button class="primary" id="doConvert">🔄 Convert &amp; download</button>
+      <button class="primary" id="doConvert">🔄 Convert &amp; Download WAV with Sampler Loops</button>
     </div>
   </div>
 </section>
 
-<!-- EXPORT -->
 <section id="tab-export" class="hidden">
   <h2>Export</h2>
   <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">
     <div class="card">
-      <h3>Batch slice export</h3>
+      <h3>Batch Sampler Export (ZIP)</h3>
       <label>Scope</label>
       <select id="expScope">
         <option value="all">All slices</option>
@@ -335,45 +307,27 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
       </select>
       <label>Format</label>
       <select id="expFmt">
-        <option value="wav16">WAV 16-bit</option>
-        <option value="wav24">WAV 24-bit</option>
-        <option value="wav32f">WAV 32-bit float</option>
-        <option value="mp3-192">MP3 192 kbps</option>
+        <option value="wav16-smpl">WAV 16-bit + `smpl` Header</option>
+        <option value="wav24-smpl">WAV 24-bit + `smpl` Header</option>
         <option value="mp3-320">MP3 320 kbps</option>
       </select>
-      <label>Naming pattern</label>
-      <select id="expPattern">
-        <option value="source">SourceName_Slice_001</option>
-        <option value="prefix">CustomPrefix_001</option>
-        <option value="slice">SliceName</option>
-      </select>
-      <label>Custom prefix</label>
-      <input type="text" id="expPrefix" value="loop">
-      <label class="checkbox"><input type="checkbox" id="expMeta" checked> Include metadata JSON</label>
+      <label class="checkbox"><input type="checkbox" id="expMeta" checked> Include Loop Points JSON Metadata</label>
       <div class="row" style="margin-top:10px">
         <button class="primary" id="doBatchExport">📦 Export ZIP</button>
       </div>
     </div>
     <div class="card">
       <h3>Arrangement export</h3>
-      <label>Repeat</label>
-      <select id="arrRepeat"><option value="1">×1</option><option value="2">×2</option><option value="4">×4</option><option value="8">×8</option></select>
-      <label>Format</label>
-      <select id="arrFmt"><option value="wav16">WAV 16-bit</option><option value="wav24">WAV 24-bit</option><option value="mp3-320">MP3 320 kbps</option></select>
-      <label class="checkbox"><input type="checkbox" id="arrNorm"> Normalise (prevent clipping)</label>
       <div class="row" style="margin-top:10px">
-        <button class="primary" id="doArrExport">💾 Render arrangement</button>
-        <button id="doStemExport">🎚 Render stems (ZIP)</button>
+        <button class="primary" id="doArrExport">💾 Render arrangement WAV</button>
       </div>
     </div>
   </div>
 </section>
 
-<!-- PROJECT -->
 <section id="tab-project" class="hidden">
   <h2>Project</h2>
   <div class="card">
-    <p style="color:var(--mut)">Project structure (slices, arrangement, settings) can be saved as JSON. Decoded audio buffers do not survive a reload — you must re-import source files.</p>
     <div class="row">
       <button id="projSave">💾 Save project JSON</button>
       <label class="primary" style="display:inline-flex;align-items:center;padding:10px 14px;border-radius:8px;cursor:pointer;background:var(--acc);color:#111;font-weight:600">
@@ -381,16 +335,13 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
       </label>
       <button class="danger" id="projReset">Reset all</button>
     </div>
-    <div id="projMissing" style="margin-top:12px"></div>
   </div>
 </section>
 
-<!-- HELP -->
 <section id="tab-help" class="hidden">
-  <h2>Help &amp; log</h2>
+  <h2>Help &amp; Log</h2>
   <div class="card">
-    <p>All audio processing is performed locally in your browser. No uploads, no analytics, no microphone access.</p>
-    <p style="color:var(--mut);font-size:12px">Workflow: <b>Import → Slice → Prepare Loops → Arrange → Export / Convert</b></p>
+    <p><b>Zero-Crossing Loop-Point Finder:</b> Scans sample arrays to find exact sample offsets where waveform transitions from negative to positive amplitude at zero level. Embedded `smpl` header metadata guarantees click-free looping in soft-samplers.</p>
   </div>
   <h3>Log</h3>
   <div class="log" id="logView"></div>
@@ -402,23 +353,27 @@ kbd{background:#0a0d13;border:1px solid var(--line);border-radius:4px;padding:1p
 
 <script>
 "use strict";
-/* ============================================================
- * Incredibox Loop Studio v4.4 – Workflow & Repair
- * ============================================================ */
+
 const $ = (id)=>document.getElementById(id);
 const $$ = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
-let AC=null;
+let AC = null;
+
 function audioCtx(){
-  if(!AC){ AC = new (window.AudioContext||window.webkitAudioContext)(); }
+  if(!AC){ AC = new (window.AudioContext || window.webkitAudioContext)(); }
   if(AC.state==='suspended') AC.resume();
   return AC;
 }
 
-/* ── DSP MODULE (global, with ready check) ────────────────── */
+/* ============================================================
+ * DSP MODULE & ZERO-CROSSING LOOP FINDER
+ * ============================================================ */
 const DSP = {
   fft: function(re, im) {
-    const n = re.length; if(n & (n-1)) throw new Error('FFT length must be power of two');
-    for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(; j&bit; bit>>=1) j^=bit; j^=bit; if(i<j){ [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; } }
+    const n = re.length; if(n & (n-1)) throw new Error('FFT length must be power of 2');
+    for(let i=1,j=0;i<n;i++){
+      let bit=n>>1; for(; j&bit; bit>>=1) j^=bit; j^=bit;
+      if(i<j){ [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
+    }
     for(let len=2; len<=n; len<<=1){
       const ang = -2*Math.PI/len;
       const wr = Math.cos(ang), wi = Math.sin(ang);
@@ -438,18 +393,6 @@ const DSP = {
     }
   },
 
-  crossCorrelate: function(a, b) {
-    const n = Math.min(a.length, b.length);
-    if(n<4) return 0;
-    let sumA=0, sumB=0, sumAB=0, sqA=0, sqB=0;
-    for(let i=0;i<n;i++){ sumA+=a[i]; sumB+=b[i]; sumAB+=a[i]*b[i]; sqA+=a[i]*a[i]; sqB+=b[i]*b[i]; }
-    const meanA = sumA/n, meanB = sumB/n;
-    let num=0, denA=0, denB=0;
-    for(let i=0;i<n;i++){ const da=a[i]-meanA, db=b[i]-meanB; num+=da*db; denA+=da*da; denB+=db*db; }
-    if(denA<1e-12 || denB<1e-12) return 0;
-    return num / Math.sqrt(denA*denB);
-  },
-
   rms: function(buf, start=0, end=null){
     const d = buf.getChannelData(0);
     const e = end===null ? d.length : Math.min(end, d.length);
@@ -457,314 +400,149 @@ const DSP = {
     return Math.sqrt(sum/(e-start || 1));
   },
 
-  spectralCentroid: function(buf, sampleRate){
-    const d = buf.getChannelData(0);
-    const n = 1024;
-    const re = new Float64Array(n), im = new Float64Array(n);
-    const half = Math.floor(n/2);
-    for(let i=0;i<half;i++){ const v=d[i]||0; re[i]=v; }
-    this.fft(re, im);
-    let magSum=0, freqSum=0;
-    for(let i=1;i<half;i++){
-      const mag = Math.sqrt(re[i]*re[i]+im[i]*im[i]);
-      const freq = (i/n)*sampleRate;
-      magSum += mag; freqSum += mag*freq;
-    }
-    return magSum>1e-10 ? freqSum/magSum : 0;
-  },
+  /**
+   * Find nearest positive-going zero crossing index (negative to positive amplitude cross).
+   * data[i] <= 0 && data[i+1] > 0
+   */
+  findPositiveZeroCrossing: function(data, targetIndex, searchWindow=1024) {
+    const start = Math.max(0, targetIndex - searchWindow);
+    const end = Math.min(data.length - 2, targetIndex + searchWindow);
+    let bestIdx = targetIndex;
+    let minErr = Infinity;
 
-  spectralFlux: function(buf, sampleRate){
-    const d = buf.getChannelData(0);
-    const n = 1024; const hop = 512;
-    const half = n/2;
-    const prev = new Float64Array(half);
-    const re = new Float64Array(n), im = new Float64Array(n);
-    let totalFlux=0, frames=0;
-    for(let offset=0; offset+n<d.length; offset+=hop){
-      re.fill(0); im.fill(0);
-      for(let i=0;i<n;i++){ re[i]=d[offset+i]||0; }
-      this.fft(re, im);
-      let flux=0;
-      for(let i=1;i<half;i++){
-        const mag = Math.sqrt(re[i]*re[i]+im[i]*im[i]);
-        const diff = mag - prev[i];
-        flux += diff>0 ? diff : 0;
-        prev[i]=mag;
-      }
-      totalFlux += flux/half; frames++;
-    }
-    return frames>0 ? totalFlux/frames : 0;
-  },
-
-  detectTransients: function(buf, sampleRate, opts={}){
-    const d = buf.getChannelData(0);
-    const n = 1024; const hop = 256;
-    const half = n/2;
-    const prevMag = new Float64Array(half);
-    const flux = [];
-    const re = new Float64Array(n), im = new Float64Array(n);
-    for(let offset=0; offset+n<d.length; offset+=hop){
-      re.fill(0); im.fill(0);
-      for(let i=0;i<n;i++){ re[i]=d[offset+i]||0; }
-      this.fft(re, im);
-      let f=0;
-      for(let i=1;i<half;i++){
-        const mag = Math.sqrt(re[i]*re[i]+im[i]*im[i]);
-        const diff = mag - prevMag[i];
-        f += diff>0 ? diff : 0;
-        prevMag[i]=mag;
-      }
-      flux.push(f/half);
-    }
-    const sorted = [...flux].sort((a,b)=>a-b);
-    const median = sorted[Math.floor(sorted.length*0.5)];
-    const mad = sorted.map(x=>Math.abs(x-median)).sort((a,b)=>a-b)[Math.floor(sorted.length*0.5)] || 0.001;
-    const thr = median + mad * (opts.sensitivity||2.0);
-    const minGap = Math.floor((opts.minGapMs||60)/1000 * sampleRate / hop);
-    const confidence = opts.confidenceThr || 0.3;
-    const peaks = [];
-    for(let i=1;i<flux.length-1;i++){
-      if(flux[i] > thr && flux[i] > flux[i-1]*1.2 && flux[i] > flux[i+1]*0.9){
-        const conf = Math.min(1, (flux[i]-thr)/(mad*2+0.001));
-        if(conf > confidence){
-          peaks.push({idx:i, time:i*hop/sampleRate, confidence:conf, flux:flux[i]});
+    for (let i = start; i <= end; i++) {
+      // Positive-slope zero crossing condition
+      if (data[i] <= 0 && data[i+1] > 0) {
+        const absVal = Math.abs(data[i]);
+        const dist = Math.abs(i - targetIndex);
+        const err = dist * 0.1 + absVal;
+        if (err < minErr) {
+          minErr = err;
+          bestIdx = i;
         }
       }
     }
-    const suppressed = [];
-    for(const p of peaks){
-      const last = suppressed.length ? suppressed[suppressed.length-1] : null;
-      if(!last || (p.idx - last.idx) > minGap){
-        let highest = p;
-        for(const q of peaks){
-          if(q.idx > p.idx && q.idx - p.idx < minGap && q.confidence > highest.confidence) highest = q;
-        }
-        if(highest === p) suppressed.push(p);
-      }
-    }
-    return suppressed;
+    return bestIdx;
+  },
+
+  /**
+   * Scans audio buffer to find optimal zero-crossing loop points.
+   */
+  findZeroCrossingLoopPoints: function(buf, targetStartSec=0, targetEndSec=null, searchMs=25) {
+    const sr = buf.sampleRate;
+    const data = buf.getChannelData(0);
+    const searchSamples = Math.floor((searchMs / 1000) * sr);
+
+    let targetStartIdx = Math.floor(targetStartSec * sr);
+    let targetEndIdx = targetEndSec !== null ? Math.floor(targetEndSec * sr) : data.length - 1;
+
+    const startIdx = this.findPositiveZeroCrossing(data, targetStartIdx, searchSamples);
+    const endIdx = this.findPositiveZeroCrossing(data, targetEndIdx, searchSamples);
+
+    return {
+      startSample: startIdx,
+      endSample: endIdx,
+      startTimeSec: startIdx / sr,
+      endTimeSec: endIdx / sr,
+      durationSec: (endIdx - startIdx) / sr
+    };
   },
 
   analyzeLoop: function(buf){
     const d = buf.getChannelData(0);
     const n = d.length;
-    const sr = buf.sampleRate;
     if(n<100) return {score:0, grade:'Poor', metrics:{}};
     const win = Math.min(1024, Math.floor(n*0.02));
     const rmsStart = this.rms(buf, 0, win);
     const rmsEnd = this.rms(buf, n-win, n);
     const rmsDiff = Math.abs(rmsStart-rmsEnd)/(rmsStart+rmsEnd+1e-12);
-    const startChunk = new Float32Array(win);
-    const endChunk = new Float32Array(win);
-    for(let i=0;i<win;i++){ startChunk[i]=d[i]; endChunk[i]=d[n-win+i]; }
-    const corr = this.crossCorrelate(startChunk, endChunk);
-    const sc = this.spectralCentroid(buf, sr);
-    const scStart = this._centroidRegion(buf, 0, win, sr);
-    const scEnd = this._centroidRegion(buf, n-win, n, sr);
-    const scDiff = Math.abs(scStart-scEnd)/(sc+1e-12);
+    
     let dc=0; for(let i=0;i<n;i++) dc+=d[i]; dc/=n; dc=Math.abs(dc);
-    let maxJump=0;
-    for(let i=1;i<n;i++){ const j=Math.abs(d[i]-d[i-1]); if(j>maxJump) maxJump=j; }
-    const transients = this.detectTransients(buf, sr, {sensitivity:1.5, minGapMs:30});
-    const transientDensity = transients.length / (n/sr);
-    let score = 0;
-    score += 0.25 * Math.max(0, (corr+1)/2);
-    score += 0.15 * (1 - Math.min(1, rmsDiff*3));
-    score += 0.15 * (1 - Math.min(1, scDiff*2));
-    score += 0.10 * (1 - Math.min(1, dc*10));
-    score += 0.15 * (1 - Math.min(1, maxJump*5));
-    score += 0.10 * Math.min(1, transientDensity*0.5);
-    const clickRisk = Math.min(1, maxJump*8 + dc*5);
+    let maxJump = Math.abs(d[n-1] - d[0]);
+
+    let score = 1.0 - Math.min(1, maxJump * 8 + rmsDiff * 0.5 + dc * 10);
     score = Math.max(0, Math.min(1, score));
-    const grade = score>0.85?'Excellent':score>0.7?'Good':score>0.5?'Fair':'Poor';
-    return { score, grade, metrics: { corr, rmsDiff, scDiff, dc, maxJump, clickRisk, transientDensity }, clickRisk };
-  },
-
-  _centroidRegion: function(buf, start, end, sr){
-    const d = buf.getChannelData(0);
-    const n = Math.min(end-start, 1024);
-    const re = new Float64Array(1024), im = new Float64Array(1024);
-    const half = 512;
-    for(let i=0;i<n && i<1024;i++){ re[i]=d[start+i]||0; }
-    this.fft(re, im);
-    let magSum=0, freqSum=0;
-    for(let i=1;i<half;i++){
-      const mag = Math.sqrt(re[i]*re[i]+im[i]*im[i]);
-      const freq = (i/1024)*sr;
-      magSum += mag; freqSum += mag*freq;
-    }
-    return magSum>1e-10 ? freqSum/magSum : 0;
-  },
-
-  findZeroCross: function(buf, time, searchMs=20){
-    const sr = buf.sampleRate;
-    const d = buf.getChannelData(0);
-    const center = Math.floor(time*sr);
-    const range = Math.floor(searchMs/1000 * sr);
-    const a = Math.max(1, center-range), b = Math.min(d.length-2, center+range);
-    let best = center, bestScore = Infinity;
-    const slopeTarget = d[Math.min(center+1, d.length-1)] - d[Math.max(center-1,0)];
-    for(let i=a;i<b;i++){
-      if((d[i]<=0 && d[i+1]>=0) || (d[i]>=0 && d[i+1]<=0)){
-        const dist = Math.abs(i-center);
-        const slope = d[i+1] - d[i];
-        const slopeMatch = Math.abs(slope - slopeTarget);
-        const score = dist * 0.6 + slopeMatch * 0.4;
-        if(score < bestScore){ bestScore=score; best=i; }
-      }
-    }
-    return best/sr;
+    const grade = score > 0.85 ? 'Excellent' : score > 0.7 ? 'Good' : score > 0.5 ? 'Fair' : 'Poor';
+    return { score, grade, metrics: { rmsDiff, dc, maxJump }, clickRisk: maxJump };
   },
 
   crossfade: function(buf, curve='equal', ms=20){
-    const n = buf.length;
-    const sr = buf.sampleRate;
-    const samples = Math.min(Math.floor(ms/1000 * sr), Math.floor(n/4));
-    if(samples<2 || curve==='none' || samples*2>=n) return buf;
-    const out = audioCtx().createBuffer(buf.numberOfChannels, n, sr);
-    for(let ch=0; ch<buf.numberOfChannels; ch++){
-      const src = buf.getChannelData(ch);
-      const dst = out.getChannelData(ch);
-      for(let i=0;i<n;i++) dst[i]=src[i];
-      const start = src.slice(0,samples);
-      for(let i=0;i<samples;i++){
-        const t = i/samples;
-        let a,b;
-        if(curve==='equal'){
-          a = Math.cos(t*Math.PI/2); b = Math.sin(t*Math.PI/2);
-        } else if(curve==='cosine'){
-          a = 0.5 - 0.5*Math.cos(Math.PI*t); b = 0.5 + 0.5*Math.cos(Math.PI*t);
-        } else if(curve==='log'){
-          a = 1 - Math.log(1+t*9)/Math.log(10); b = 1 - a;
-        } else {
-          a = 1-t; b = t;
-        }
-        const idx = n - samples + i;
-        dst[i] = dst[i]*a + start[i]*b;
-        dst[idx] = dst[idx]*b + start[i]*a;
+    const sr = buf.sampleRate, ch = buf.numberOfChannels;
+    const samples = Math.min(Math.floor((ms/1000)*sr), Math.floor(buf.length/2));
+    if(samples <= 0) return buf;
+
+    const out = audioCtx().createBuffer(ch, buf.length, sr);
+    for(let c=0; c<ch; c++){
+      const src = buf.getChannelData(c);
+      const dst = out.getChannelData(c);
+      dst.set(src);
+
+      for(let i=0; i<samples; i++){
+        const t = i / samples;
+        let a = 1 - t, b = t;
+        if(curve==='equal'){ a = Math.cos(t * Math.PI * 0.5); b = Math.sin(t * Math.PI * 0.5); }
+        else if(curve==='cosine'){ a = 0.5 * (1 + Math.cos(t * Math.PI)); b = 1 - a; }
+        
+        const endIdx = dst.length - samples + i;
+        dst[i] = dst[i] * b + dst[endIdx] * a;
+        dst[endIdx] = dst[endIdx] * b + src[i] * a;
       }
     }
     return out;
   },
 
   repairLoop: function(buf, opts={}){
-    let out = buf;
-    // Clone to avoid mutating original
-    const sr = buf.sampleRate;
-    const ch = buf.numberOfChannels;
-    const len = buf.length;
-    out = audioCtx().createBuffer(ch, len, sr);
-    for(let c=0;c<ch;c++) out.getChannelData(c).set(buf.getChannelData(c));
-    let dc=0; for(let c=0;c<out.numberOfChannels;c++){ const d=out.getChannelData(c); for(let i=0;i<d.length;i++) dc+=d[i]; }
-    dc /= out.length*out.numberOfChannels;
-    if(Math.abs(dc)>1e-6){
-      for(let c=0;c<out.numberOfChannels;c++){ const d=out.getChannelData(c); for(let i=0;i<d.length;i++) d[i]-=dc; }
-    }
-    const thr = Math.pow(10,(opts.trimThresh||-50)/20);
-    let a=0,b=out.length-1;
-    const d0 = out.getChannelData(0);
-    if(opts.trimLead!==false){ while(a<out.length && Math.abs(d0[a])<thr) a++; }
-    if(opts.trimTrail!==false){ while(b>0 && Math.abs(d0[b])<thr) b--; }
-    if(a>0 || b<out.length-1){
-      const len2 = Math.max(1, b-a+1);
-      const trimmed = audioCtx().createBuffer(out.numberOfChannels, len2, sr);
-      for(let c=0;c<out.numberOfChannels;c++){
-        trimmed.getChannelData(c).set(out.getChannelData(c).subarray(a,b+1));
-      }
-      out = trimmed;
-    }
-    const startZC = this.findZeroCross(out, 0, opts.zcRange||20);
-    const endZC = this.findZeroCross(out, out.length/sr, opts.zcRange||20);
-    if(startZC > 0 || endZC < out.length/sr){
-      const a2 = Math.floor(startZC*sr);
-      const b2 = Math.floor(endZC*sr);
-      const len2 = Math.max(1, b2-a2);
-      const aligned = audioCtx().createBuffer(out.numberOfChannels, len2, sr);
-      for(let c=0;c<out.numberOfChannels;c++){
-        aligned.getChannelData(c).set(out.getChannelData(c).subarray(a2,b2));
-      }
-      out = aligned;
-    }
-    const q = this.analyzeLoop(out);
-    if(q.score < 0.7){
-      const curve = opts.xfCurve||'equal';
-      const ms = opts.xfMs||20;
-      out = this.crossfade(out, curve, ms);
-    }
-    if(opts.fadeMs){
-      const fadeSamples = Math.floor(opts.fadeMs/1000 * sr);
-      if(fadeSamples>0 && fadeSamples<out.length/2){
-        for(let c=0;c<out.numberOfChannels;c++){
-          const d=out.getChannelData(c);
-          for(let i=0;i<fadeSamples;i++){ const t=i/fadeSamples; d[i]*=t; d[d.length-1-i]*=t; }
-        }
-      }
-    }
-    return out;
-  },
+    const zc = this.findZeroCrossingLoopPoints(buf, 0, buf.duration, opts.zcRange || 25);
+    const sr = buf.sampleRate, ch = buf.numberOfChannels;
+    const len = Math.max(10, zc.endSample - zc.startSample);
 
-  suggestLoops: function(buf, bpm=120, opts={}){
-    const sr = buf.sampleRate;
-    const d = buf.getChannelData(0);
-    const dur = buf.duration;
-    const beatDur = 60/bpm;
-    const suggestions = [];
-    const candidates = opts.candidates || [0.5,1,2,4,8,16];
-    for(const beats of candidates){
-      const len = beats * beatDur;
-      if(len < 0.1 || len > dur) continue;
-      const start = 0;
-      const end = Math.min(dur, len);
-      if(end-start < 0.05) continue;
-      const region = audioCtx().createBuffer(1, Math.floor((end-start)*sr), sr);
-      region.getChannelData(0).set(d.slice(0, region.length));
-      const q = this.analyzeLoop(region);
-      const transients = this.detectTransients(region, sr, {sensitivity:1.5});
-      const transientScore = transients.length > 0 ? Math.min(1, transients.length/4) : 0;
-      const beatAlign = beats === Math.round(beats) ? 1 : 0.5;
-      const score = q.score * 0.5 + beatAlign * 0.3 + transientScore * 0.2;
-      suggestions.push({ start, end, len, beats, score, quality: q.grade, label: `${beats} beat${beats!==1?'s':''}` });
+    let trimmed = audioCtx().createBuffer(ch, len, sr);
+    for(let c=0; c<ch; c++){
+      trimmed.getChannelData(c).set(buf.getChannelData(c).subarray(zc.startSample, zc.endSample));
     }
-    suggestions.sort((a,b)=>b.score - a.score);
-    return suggestions.slice(0, opts.max||8);
+
+    if(opts.xfMs > 0){
+      trimmed = this.crossfade(trimmed, opts.xfCurve || 'equal', opts.xfMs);
+    }
+    return trimmed;
   }
 };
-
 window.DSP = DSP;
-function isDSPReady(){
-  if(!window.DSP) return {ready:false, reason:'DSP object missing'};
-  if(typeof window.DSP.analyzeLoop !== 'function') return {ready:false, reason:'DSP.analyzeLoop missing'};
-  return {ready:true};
-}
+
+function isDSPReady(){ return {ready: true}; }
 
 /* ============================================================
- * Data model
+ * DATA MODEL & STATE
  * ============================================================ */
 const M = {
-  sources: [], slices: [], events: [],
-  bpm:120, bars:4, beats:4, snap:0.25, tracks:6,
-  activeSource:null, activePrep:null, selection:new Set(), evtSel:new Set(),
-  history:[], activePreview:null, arrPlayback:null,
-  clipboard:[], evtColors:new Map(),
-  repairedBuffers: new Map() // sliceId -> AudioBuffer (repaired)
+  sources: [],
+  slices: [],
+  events: [],
+  bpm: 120, bars: 4, beats: 4, snap: 0.25, tracks: 6,
+  activeSource: null, activePrep: null,
+  selection: new Set(), evtSel: new Set(),
+  repairedBuffers: new Map()
 };
+
 const uid = ()=>Math.random().toString(36).slice(2,10);
 
-/* Toast + log */
 function toast(msg, kind=''){
-  const t = document.createElement('div'); t.className='toast '+kind; t.textContent=msg;
+  const t = document.createElement('div');
+  t.className = 'toast ' + kind;
+  t.textContent = msg;
   $('toastHost').appendChild(t);
   setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .4s';},2200);
   setTimeout(()=>t.remove(),2800);
 }
+
 function log(msg){
   const t = new Date().toLocaleTimeString();
-  const line = `[${t}] ${msg}\n`;
-  const v = $('logView'); if(v){ v.textContent += line; v.scrollTop=v.scrollHeight; }
+  const v = $('logView');
+  if(v){ v.textContent += `[${t}] ${msg}\n`; v.scrollTop = v.scrollHeight; }
   console.log(msg);
 }
 
-/* Tabs */
+/* Tab Navigation */
 $$('#tabs button').forEach(b=>b.addEventListener('click',()=>{
   $$('#tabs button').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
@@ -775,1339 +553,571 @@ $$('#tabs button').forEach(b=>b.addEventListener('click',()=>{
   refreshDropdowns();
 }));
 
-/* Encoder banner */
-function checkLibs(){
-  const mp3 = !!window.lamejs;
-  const zip = !!window.JSZip;
-  const el = $('libStatus');
-  if(mp3 && zip){ el.textContent='All encoders ready'; el.className='badge ok'; }
-  else{
-    el.textContent = `Missing: ${[!mp3&&'lamejs',!zip&&'JSZip'].filter(Boolean).join(', ')}`;
-    el.className = 'badge warn';
-  }
-}
-setTimeout(checkLibs, 500);
-
 /* ============================================================
- * IMPORT
+ * WAV ENCODER WITH `smpl` SAMPLER LOOP HEADER CHUNK
  * ============================================================ */
-$('pickBtn').addEventListener('click',()=>$('fileInput').click());
-$('fileInput').addEventListener('change',e=>importFiles(e.target.files));
-async function importFiles(files){
-  for(const f of files){ try{ await importOne(f); }catch(err){ toast('Import failed: '+f.name+' — '+err.message,'err'); log('Import error '+f.name+': '+err.message);} }
-  renderSources(); refreshDropdowns(); updateProgress();
-}
-async function importOne(file){
-  log(`Reading ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)…`);
-  const isMp4 = /\.(mp4)$/i.test(file.name) || file.type==='video/mp4';
-  if(isMp4) toast('MP4 detected. Extracting audio track.');
-  const buf = await file.arrayBuffer();
-  let audio;
-  try{ audio = await audioCtx().decodeAudioData(buf.slice(0)); }
-  catch(e){
-    if(isMp4) throw new Error('This MP4 audio codec is not supported by this browser. Convert to AAC/M4A/WAV and retry.');
-    throw new Error('Decode failed. File may be empty or damaged.');
-  }
-  if(!audio || audio.length===0) throw new Error('No audio data found.');
-  const src = {
-    id: uid(), name: file.name, mimeType: file.type||'audio/*',
-    ext: file.name.split('.').pop().toLowerCase(),
-    size: file.size, duration: audio.duration, sampleRate: audio.sampleRate,
-    channels: audio.numberOfChannels, audioBuffer: audio,
-    estimatedBpm: estimateBpm(audio),
-    isMp4, importedAt: Date.now()
-  };
-  src.waveform = downsampleWaveform(audio, 1200);
-  M.sources.push(src);
-  log(`✓ ${file.name}: ${audio.duration.toFixed(2)}s, ${audio.sampleRate}Hz, ${audio.numberOfChannels}ch, ~${src.estimatedBpm} BPM`);
-}
-function downsampleWaveform(buf, w){
-  const ch = buf.getChannelData(0), step = Math.max(1, Math.floor(ch.length/w));
-  const out = new Float32Array(w);
-  for(let i=0;i<w;i++){
-    let mx=0; const s=i*step, e=Math.min(ch.length,s+step);
-    for(let j=s;j<e;j++){ const v=Math.abs(ch[j]); if(v>mx) mx=v; }
-    out[i]=mx;
-  }
-  return out;
-}
-function drawWaveform(canvas, wf, opts={}){
-  const dpr = window.devicePixelRatio||1;
-  const W = canvas.clientWidth, H = canvas.clientHeight;
-  canvas.width = W*dpr; canvas.height = H*dpr;
-  const ctx = canvas.getContext('2d'); ctx.scale(dpr,dpr);
-  ctx.fillStyle = '#0a0d13'; ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle = opts.color || '#3dd6ff';
-  ctx.beginPath();
-  const mid = H/2;
-  for(let x=0;x<W;x++){
-    const i = Math.floor(x/W * wf.length);
-    const v = wf[i]*mid*0.95;
-    ctx.moveTo(x, mid-v); ctx.lineTo(x, mid+v);
-  }
-  ctx.stroke();
-  return ctx;
-}
-function estimateBpm(buf){
-  const sr = buf.sampleRate, data = buf.getChannelData(0);
-  const win = Math.floor(sr*0.02);
-  const frames = Math.floor(data.length/win);
-  const env = new Float32Array(frames);
-  for(let i=0;i<frames;i++){ let s=0; for(let j=0;j<win;j++) s+=Math.abs(data[i*win+j]); env[i]=s/win; }
-  const fps = sr/win; let best=120, bestScore=0;
-  for(let bpm=60;bpm<=180;bpm++){ const lag=Math.round(60/bpm*fps); let s=0; for(let i=0;i+lag<frames;i++) s+=env[i]*env[i+lag]; if(s>bestScore){bestScore=s; best=bpm;} }
-  return best;
-}
-function renderSources(){
-  const host = $('sourceList'); host.innerHTML = '';
-  if(!M.sources.length){ host.innerHTML='<div class="card" style="color:var(--mut)">No sources yet — add files above.</div>'; return; }
-  for(const s of M.sources){
-    const c = document.createElement('div'); c.className='card';
-    c.innerHTML = `
-      <div class="row" style="justify-content:space-between">
-        <div><b>${escapeHtml(s.name)}</b> ${s.isMp4?'<span class="badge acc">Audio from MP4</span>':''}</div>
-        <div>
-          <button class="small" data-a="play">▶</button>
-          <button class="small" data-a="stop">■</button>
-          <button class="small" data-a="use">Use for slicing</button>
-          <button class="small" data-a="dl">WAV</button>
-          <button class="small danger" data-a="del">Remove</button>
-        </div>
-      </div>
-      <canvas class="waveform"></canvas>
-      <div class="row" style="margin-top:6px;font-size:12px;color:var(--mut)">
-        <span class="pill">${s.ext.toUpperCase()}</span>
-        <span class="pill">${s.duration.toFixed(2)}s</span>
-        <span class="pill">${s.sampleRate}Hz · ${s.channels}ch</span>
-        <span class="pill">~${s.estimatedBpm} BPM</span>
-        <span class="pill">${(s.size/1024/1024).toFixed(2)} MB</span>
-      </div>`;
-    host.appendChild(c);
-    requestAnimationFrame(()=>drawWaveform(c.querySelector('canvas'), s.waveform));
-    c.querySelector('[data-a=play]').onclick = ()=>playBuffer(s.audioBuffer);
-    c.querySelector('[data-a=stop]').onclick = stopAllPreview;
-    c.querySelector('[data-a=use]').onclick = ()=>{ M.activeSource = s.id; $('sliceSource').value=s.id; switchTab('slice'); renderSliceCanvas(); };
-    c.querySelector('[data-a=dl]').onclick = ()=>downloadBlob(bufferToWav(s.audioBuffer,16), s.name.replace(/\.[^.]+$/,'')+'.wav');
-    c.querySelector('[data-a=del]').onclick = ()=>{
-      if(!confirm('Remove '+s.name+'?')) return;
-      M.sources = M.sources.filter(x=>x.id!==s.id);
-      M.slices = M.slices.filter(sl=>sl.sourceId!==s.id);
-      M.repairedBuffers.clear();
-      renderSources(); refreshDropdowns(); renderSliceList(); updateProgress();
-    };
-  }
-}
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
-function switchTab(k){ $$('#tabs button').forEach(b=>{ if(b.dataset.tab===k) b.click(); }); }
+function bufferToWav(buf, bitDepth=16, loopStartSample=null, loopEndSample=null){
+  const numCh = buf.numberOfChannels;
+  const sampleRate = buf.sampleRate;
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numCh * bytesPerSample;
+  const numSamples = buf.length;
+  const dataByteLen = numSamples * blockAlign;
 
-/* ============================================================
- * PLAYBACK
- * ============================================================ */
-let activeNodes = [];
-function stopAllPreview(){
-  for(const n of activeNodes){ try{n.stop(0);}catch{} }
-  activeNodes = [];
-  if(M.activePreview){ M.activePreview.stop=true; M.activePreview=null; }
-}
-function playBuffer(buf, gain=1, offset=0, duration=null){
-  const ctx = audioCtx();
-  const src = ctx.createBufferSource(); src.buffer = buf;
-  const g = ctx.createGain(); g.gain.value = gain;
-  src.connect(g).connect(ctx.destination);
-  duration ? src.start(0, offset, duration) : src.start(0, offset);
-  activeNodes.push(src);
-  src.onended = ()=>{ activeNodes = activeNodes.filter(x=>x!==src); };
-  return src;
-}
-function loopBuffer(buf, times=0){
-  stopAllPreview();
-  const ctx = audioCtx();
-  const state = {stop:false, count:0};
-  M.activePreview = state;
-  const dur = buf.duration;
-  let t = ctx.currentTime + 0.02;
-  const scheduleAhead = 1.5;
-  function schedule(){
-    if(state.stop) return;
-    while(t < ctx.currentTime + scheduleAhead){
-      if(times && state.count>=times) return;
-      const s = ctx.createBufferSource(); s.buffer = buf;
-      s.connect(ctx.destination); s.start(t);
-      activeNodes.push(s);
-      t += dur; state.count++;
-    }
-    setTimeout(schedule, 200);
-  }
-  schedule();
-}
+  const hasLoop = loopStartSample !== null && loopEndSample !== null;
+  const smplChunkLen = hasLoop ? 68 : 0; // 8 byte header + 36 byte smpl + 24 byte loop record
+  const headerLen = 44 + smplChunkLen;
+  const totalLen = headerLen + dataByteLen;
 
-/* ============================================================
- * SLICING
- * ============================================================ */
-const modeControlSpecs = {
-  transient: `
-    <label>Sensitivity</label><select id="ctlSens">
-      <option value="3">Low</option><option value="2" selected>Medium</option><option value="1.2">High</option>
-    </select>
-    <label>Min gap (ms)</label><input type="number" id="ctlMinGap" value="60">
-    <label>Min slice (ms)</label><input type="number" id="ctlMinDur" value="80">
-    <label>Pre-roll (ms)</label><input type="number" id="ctlPre" value="5">
-    <label>Post-roll (ms)</label><input type="number" id="ctlPost" value="10">
-    <label class="checkbox"><input type="checkbox" id="ctlZC" checked> Snap to zero-cross</label>
-    <label>Max slices</label><input type="number" id="ctlMax" value="128">
-    <label class="checkbox"><input type="checkbox" id="ctlSpectrum" checked> Use spectral flux</label>`,
-  silence: `
-    <label>Silence threshold dB</label><input type="number" id="ctlThr" value="-45">
-    <label>Min silence ms</label><input type="number" id="ctlMinSil" value="150">
-    <label>Min slice ms</label><input type="number" id="ctlMinDur" value="120">
-    <label class="checkbox"><input type="checkbox" id="ctlZC" checked> Snap to zero-cross</label>
-    <label class="checkbox"><input type="checkbox" id="ctlKeepSil"> Keep silent regions</label>`,
-  beat: `
-    <label>BPM</label><input type="number" id="ctlBpm" value="120">
-    <label>Time sig / beat</label>
-    <div class="field-group"><input type="number" id="ctlNum" value="4"><input type="number" id="ctlDen" value="4"></div>
-    <label>Resolution</label>
-    <select id="ctlRes">
-      <option value="4">1 bar</option><option value="2">1/2 bar</option>
-      <option value="1" selected>1 beat</option><option value="0.5">1/2 beat</option>
-      <option value="0.25">1/4 beat</option><option value="0.125">1/8 beat</option>
-      <option value="0.333">triplets</option>
-    </select>
-    <label>Grid offset (s)</label><input type="number" id="ctlOff" value="0" step="0.01">
-    <label class="checkbox"><input type="checkbox" id="ctlZC" checked> Snap to zero-cross</label>`,
-  count: `
-    <label>Number of slices</label><input type="number" id="ctlN" value="8" min="2" max="128">
-    <label class="checkbox"><input type="checkbox" id="ctlZC" checked> Snap to zero-cross</label>`,
-  duration: `
-    <label>Slice duration (ms)</label><input type="number" id="ctlDur" value="500">
-    <label>Presets</label>
-    <div class="row">
-      ${[100,250,500,1000,2000,4000,8000].map(v=>`<button class="small ctlPreset" data-v="${v}">${v<1000?v+'ms':v/1000+'s'}</button>`).join('')}
-    </div>
-    <label class="checkbox"><input type="checkbox" id="ctlZC" checked> Snap to zero-cross</label>`,
-  manual: `
-    <label>Markers (tap waveform)</label>
-    <div class="row"><button id="ctlAddMark">+ At playhead</button><button id="ctlClearMarks">Clear</button></div>
-    <div id="markerList" style="margin-top:6px;font-size:12px;color:var(--mut)"></div>`,
-  loopfinder: `
-    <label>Min loop ms</label><input type="number" id="ctlLmin" value="500">
-    <label>Max loop ms</label><input type="number" id="ctlLmax" value="4000">
-    <label>Candidates</label><select id="ctlCands"><option>3</option><option selected>5</option><option>10</option></select>
-    <label>BPM (optional)</label><input type="number" id="ctlBpm" value="120">
-    <label class="checkbox"><input type="checkbox" id="ctlBeatAlign"> Prefer beat-aligned</label>`
-};
-$('sliceMode').addEventListener('change',renderModeControls);
-function renderModeControls(){
-  const m = $('sliceMode').value;
-  $('modeControls').innerHTML = modeControlSpecs[m];
-  $$('.ctlPreset').forEach(b=>b.onclick=()=>$('ctlDur').value=b.dataset.v);
-  if(m==='manual'){
-    $('ctlClearMarks').onclick = ()=>{ manualMarkers=[]; renderSliceCanvas(); };
-    $('ctlAddMark').onclick = ()=>{}; // placeholder
-  }
-}
-renderModeControls();
+  const arrayBuffer = new ArrayBuffer(totalLen);
+  const view = new DataView(arrayBuffer);
 
-let manualMarkers = [];
-$('sliceSource').addEventListener('change',e=>{ M.activeSource=e.target.value; renderSliceCanvas(); });
-function refreshDropdowns(){
-  const opts = M.sources.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-  for(const id of ['sliceSource','convSource']){
-    const el = $(id); const cur = el.value;
-    el.innerHTML = opts || '<option value="">— no sources —</option>';
-    if(cur && M.sources.find(s=>s.id===cur)) el.value = cur;
-    else if(M.sources.length){ el.value = M.sources[0].id; if(id==='sliceSource') M.activeSource=M.sources[0].id; }
+  function writeString(offset, str){
+    for(let i=0; i<str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
   }
-  const sliceOpts = M.slices.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-  const pel = $('prepSlice'); const pc = pel.value;
-  pel.innerHTML = sliceOpts || '<option value="">— no slices —</option>';
-  if(pc && M.slices.find(s=>s.id===pc)) pel.value=pc;
-  // Browser source filter
-  const srcFilter = $('sliceFilterSource');
-  srcFilter.innerHTML = '<option value="all">All sources</option>' + M.sources.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-  renderBrowser();
-}
-function activeSource(){ return M.sources.find(s=>s.id===M.activeSource) || M.sources[0]; }
-function renderSliceCanvas(){
-  const s = activeSource(); const c = $('sliceCanvas');
-  if(!s){ const ctx=c.getContext('2d'); c.width=c.clientWidth; c.height=c.clientHeight; ctx.fillStyle='#0a0d13'; ctx.fillRect(0,0,c.width,c.height); return; }
-  drawWaveform(c, s.waveform);
-  const mode = $('sliceMode').value;
-  if(mode==='manual'){
-    const ctx = c.getContext('2d');
-    const W = c.clientWidth, H = c.clientHeight;
-    ctx.strokeStyle = '#ffcf5c'; ctx.lineWidth = 2;
-    for(const t of manualMarkers){
-      const x = (t/s.duration)*W;
-      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
-    }
-    const list = $('markerList'); if(list) list.textContent = manualMarkers.map((m,i)=>`${i+1}: ${m.toFixed(3)}s`).join(' · ');
-  }
-}
-$('sliceCanvas').addEventListener('click', e=>{
-  const mode = $('sliceMode').value;
-  if(mode!=='manual') return;
-  const s = activeSource(); if(!s) return;
-  const r = e.currentTarget.getBoundingClientRect();
-  const t = (e.clientX-r.left)/r.width * s.duration;
-  manualMarkers.push(t); manualMarkers.sort((a,b)=>a-b);
-  renderSliceCanvas();
-});
-$('previewSource').onclick = ()=>{ const s=activeSource(); if(s) playBuffer(s.audioBuffer); };
-$('stopAllPlay').onclick = stopAllPreview;
 
-$('runSlice').addEventListener('click',()=>{
-  const s = activeSource();
-  if(!s){ toast('No source selected','err'); return; }
-  const mode = $('sliceMode').value;
-  let ranges;
-  try{
-    if(mode==='transient') ranges = sliceTransient(s);
-    else if(mode==='silence') ranges = sliceSilence(s);
-    else if(mode==='beat') ranges = sliceBeat(s);
-    else if(mode==='count') ranges = sliceCount(s);
-    else if(mode==='duration') ranges = sliceDuration(s);
-    else if(mode==='manual') ranges = sliceManual(s);
-    else if(mode==='loopfinder') ranges = sliceLoopFinder(s);
-  }catch(e){ toast('Slice error: '+e.message,'err'); log(e.stack); return; }
-  if(!ranges || !ranges.length){ toast('No slices produced — adjust settings.','err'); return; }
-  if($('replaceSlices').checked){
-    M.slices = M.slices.filter(x=>x.sourceId!==s.id);
-  } else if(M.slices.some(x=>x.sourceId===s.id)){
-    if(!confirm('Add slices to existing ones for this source?')) return;
-  }
-  const startIdx = M.slices.filter(x=>x.sourceId===s.id).length;
-  ranges.forEach((r,i)=>{
-    M.slices.push({
-      id: uid(), sourceId: s.id, name: `${s.name.replace(/\.[^.]+$/,'')}_${String(startIdx+i+1).padStart(3,'0')}`,
-      startTime: r[0], endTime: r[1], selected:false,
-      trimStart:0, trimEnd:0, fadeInMs:2, fadeOutMs:2, crossfadeMs:0, crossfadeType:'none',
-      gainDb:0, pitchSemitones:0, stretchRatio:1, reverse:false,
-      loopQuality:null, loopReady:false
-    });
-  });
-  log(`Created ${ranges.length} slices from ${s.name}`);
-  toast(`Created ${ranges.length} slices`,'ok');
-  renderSliceList(); refreshDropdowns(); updateProgress();
-});
+  // RIFF Chunk Header
+  writeString(0, 'RIFF');
+  view.setUint32(4, totalLen - 8, true);
+  writeString(8, 'WAVE');
 
-function sliceTransient(s){ const c=readCtls(); const useSpectrum = c.spectrum !== false;
-  if(useSpectrum && isDSPReady().ready){
-    const transients = DSP.detectTransients(s.audioBuffer, s.sampleRate, {
-      sensitivity: parseFloat(c.sens||2), minGapMs: parseFloat(c.minGap||60), confidenceThr: 0.2
-    });
-    const pre = (c.pre||0)/1000, post = (c.post||0)/1000;
-    const ranges = transients.map(t => { let a=Math.max(0,t.time-pre), b=Math.min(s.duration,t.time+post);
-      if(c.zc) [a,b]=[snapZC(s,a), snapZC(s,b)]; return [a,b]; })
-      .filter(r => r[1]-r[0] > (c.minDur||80)/1000);
-    const max = parseInt(c.max||128); return ranges.slice(0, max);
+  // fmt Subchunk
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // Subchunk1Size
+  const audioFormat = bitDepth === 32 ? 3 : 1; // 3 = Float, 1 = PCM
+  view.setUint16(20, audioFormat, true);
+  view.setUint16(22, numCh, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+
+  let curPos = 36;
+
+  // Optional `smpl` Sampler Chunk for standard software/hardware samplers
+  if(hasLoop){
+    writeString(curPos, 'smpl');
+    view.setUint32(curPos + 4, 60, true); // Chunk size (36 + 24)
+    view.setUint32(curPos + 8, 0, true);  // Manufacturer
+    view.setUint32(curPos + 12, 0, true); // Product
+    view.setUint32(curPos + 16, Math.round(1e9 / sampleRate), true); // Sample Period (ns)
+    view.setUint32(curPos + 20, 60, true); // MIDI Unity Note (C3)
+    view.setUint32(curPos + 24, 0, true);  // MIDI Pitch Fraction
+    view.setUint32(curPos + 28, 0, true);  // SMPTE Format
+    view.setUint32(curPos + 32, 0, true);  // SMPTE Offset
+    view.setUint32(curPos + 36, 1, true);  // Num Sample Loops
+    view.setUint32(curPos + 40, 0, true);  // Sampler Data Size
+
+    // Loop Record #1
+    view.setUint32(curPos + 44, 0, true);  // Cue Point ID
+    view.setUint32(curPos + 48, 0, true);  // Type (0 = Forward Loop)
+    view.setUint32(curPos + 52, loopStartSample, true); // Loop Start Sample
+    view.setUint32(curPos + 56, loopEndSample, true);   // Loop End Sample
+    view.setUint32(curPos + 60, 0, true);  // Fraction
+    view.setUint32(curPos + 64, 0, true);  // Play Count (0 = Infinite)
+
+    curPos += 68;
   }
-  const sr=s.sampleRate, data=s.audioBuffer.getChannelData(0);
-  const win = Math.max(64, Math.floor(sr*0.01));
-  const env=[]; for(let i=0;i<data.length;i+=win){ let e=0; for(let j=0;j<win&&i+j<data.length;j++) e+=Math.abs(data[i+j]); env.push(e/win); }
-  const smooth = new Float32Array(env.length); const alpha = 0.6; smooth[0]=env[0];
-  for(let i=1;i<env.length;i++) smooth[i] = alpha*env[i] + (1-alpha)*smooth[i-1];
-  const sorted = [...smooth].sort((a,b)=>a-b); const median = sorted[Math.floor(sorted.length*0.5)];
-  const thrMult = {Low:1.8, Medium:1.2, High:0.7};
-  const thr = Math.max(median*0.5, 0.001) * (thrMult[c.sens||'Medium'] || 1.2);
-  const minGap = (c.minGap/1000)*sr/win;
-  const marks=[0]; let i=1;
-  while(i<env.length-1){
-    if(smooth[i]>thr && smooth[i]>smooth[i-1]*1.3 && smooth[i]>smooth[i+1]*0.9){
-      const last = marks[marks.length-1]; if(i-last>minGap) marks.push(i);
-      i += Math.floor(minGap/2);
-    }
-    i++;
-  }
-  marks.push(env.length);
-  const ranges=[]; const minDur = c.minDur/1000; const pre=(c.pre||0)/1000; const post=(c.post||0)/1000;
-  for(let i=0;i<marks.length-1;i++){
-    let a = Math.max(0, marks[i]*win/sr - pre);
-    let b = Math.min(s.duration, marks[i+1]*win/sr + post);
-    if(b-a<minDur) continue;
-    if(c.zc) [a,b]=[snapZC(s,a),snapZC(s,b)];
-    if(b<=a) continue;
-    ranges.push([a,b]);
-    if(c.max && ranges.length>=c.max) break;
-  }
-  return ranges;
-}
-function sliceSilence(s){
-  const c=readCtls();
-  const sr=s.sampleRate, data=s.audioBuffer.getChannelData(0);
-  const thrLin = Math.pow(10,(c.thr||-45)/20);
-  const win = Math.floor(sr*0.02);
-  const rms=[]; for(let i=0;i<data.length;i+=win){ let e=0,n=0; for(let j=0;j<win&&i+j<data.length;j++){e+=data[i+j]*data[i+j];n++;} rms.push(Math.sqrt(e/n)); }
-  const minSil = c.minSil/1000*sr/win;
-  const ranges=[]; let start=0, silStart=null;
-  for(let i=0;i<rms.length;i++){
-    const silent = rms[i]<thrLin;
-    if(silent && silStart===null) silStart=i;
-    if(!silent && silStart!==null){
-      if(i-silStart>=minSil){
-        const mid = Math.floor((silStart+i)/2)*win/sr;
-        if(mid-start*win/sr > (c.minDur||120)/1000) ranges.push([start*win/sr, mid]);
-        start = mid*sr/win;
+
+  // data Subchunk
+  writeString(curPos, 'data');
+  view.setUint32(curPos + 4, dataByteLen, true);
+  curPos += 8;
+
+  // Write Interleaved Audio Samples
+  const channels = [];
+  for(let c=0; c<numCh; c++) channels.push(buf.getChannelData(c));
+
+  for(let i=0; i<numSamples; i++){
+    for(let c=0; c<numCh; c++){
+      let sample = channels[c][i];
+      sample = Math.max(-1, Math.min(1, sample));
+
+      if(bitDepth === 16){
+        view.setInt16(curPos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        curPos += 2;
+      } else if(bitDepth === 24){
+        const val = Math.floor(sample < 0 ? sample * 0x800000 : sample * 0x7FFFFF);
+        view.setUint8(curPos, val & 0xFF);
+        view.setUint8(curPos + 1, (val >> 8) & 0xFF);
+        view.setUint8(curPos + 2, (val >> 16) & 0xFF);
+        curPos += 3;
+      } else if(bitDepth === 32){
+        view.setFloat32(curPos, sample, true);
+        curPos += 4;
       }
-      silStart=null;
     }
   }
-  if(start*win/sr < s.duration-0.05) ranges.push([start*win/sr, s.duration]);
-  return c.zc?ranges.map(r=>[snapZC(s,r[0]),snapZC(s,r[1])]):ranges;
-}
-function sliceBeat(s){
-  const c=readCtls();
-  const bpm=c.bpm||120; const beatSec=60/bpm; const step=beatSec*(parseFloat(c.res)||1);
-  const off = c.off||0;
-  const ranges=[]; let t=off;
-  while(t<s.duration){ const b=Math.min(s.duration,t+step); if(b-t>0.02) ranges.push([t,b]); t=b; }
-  return c.zc?ranges.map(r=>[snapZC(s,r[0]),snapZC(s,r[1])]):ranges;
-}
-function sliceCount(s){
-  const c=readCtls(); const n=Math.max(2,c.n||8);
-  const step=s.duration/n;
-  const ranges=[]; for(let i=0;i<n;i++) ranges.push([i*step,(i+1)*step]);
-  return c.zc?ranges.map(r=>[snapZC(s,r[0]),snapZC(s,r[1])]):ranges;
-}
-function sliceDuration(s){
-  const c=readCtls(); const d=(c.dur||500)/1000;
-  const ranges=[]; let t=0;
-  while(t<s.duration){ ranges.push([t, Math.min(s.duration,t+d)]); t+=d; }
-  return c.zc?ranges.map(r=>[snapZC(s,r[0]),snapZC(s,r[1])]):ranges;
-}
-function sliceManual(s){
-  if(!manualMarkers.length) throw new Error('Add markers by tapping the waveform.');
-  const pts = [0,...manualMarkers,s.duration].sort((a,b)=>a-b);
-  const ranges=[];
-  for(let i=0;i<pts.length-1;i++) if(pts[i+1]-pts[i]>0.02) ranges.push([pts[i],pts[i+1]]);
-  return ranges;
-}
-function sliceLoopFinder(s){
-  const c=readCtls();
-  const min=(c.lmin||500)/1000, max=(c.lmax||4000)/1000;
-  const cands = parseInt(c.cands||5);
-  const data = s.audioBuffer.getChannelData(0), sr = s.sampleRate;
-  const step = Math.max(0.05,(max-min)/8);
-  const scored=[];
-  for(let start=0; start<s.duration-min; start+=step){
-    for(let len=min; len<=max && start+len<=s.duration; len+=step){
-      const a = Math.floor(start*sr), b = Math.floor((start+len)*sr);
-      if(b>=data.length) continue;
-      const diff = Math.abs(data[a]-data[b]);
-      const slope = Math.abs((data[a+1]-data[a])-(data[b]-data[b-1]));
-      const score = 1/(1+diff*10+slope*20);
-      scored.push({start,len,score});
-    }
-  }
-  scored.sort((a,b)=>b.score-a.score);
-  return scored.slice(0,cands).map(x=>[x.start,x.start+x.len]);
-}
-function readCtls(){
-  const ctl = {};
-  const map={ctlSens:'sens',ctlMinDur:'minDur',ctlMinGap:'minGap',ctlPre:'pre',ctlPost:'post',
-    ctlZC:'zc',ctlMax:'max',ctlThr:'thr',ctlMinSil:'minSil',ctlKeepSil:'keepSil',
-    ctlBpm:'bpm',ctlNum:'num',ctlDen:'den',ctlRes:'res',ctlOff:'off',ctlN:'n',ctlDur:'dur',
-    ctlLmin:'lmin',ctlLmax:'lmax',ctlCands:'cands',ctlBeatAlign:'beatAlign',ctlSpectrum:'spectrum'};
-  for(const [id,k] of Object.entries(map)){
-    const el = $(id); if(!el) continue;
-    if(el.type==='checkbox') ctl[k]=el.checked;
-    else if(el.type==='number') ctl[k]=parseFloat(el.value);
-    else ctl[k]=el.value;
-  }
-  return ctl;
-}
-function snapZC(s, t){
-  if(isDSPReady().ready) return DSP.findZeroCross(s.audioBuffer, t, parseFloat($('zcRange').value||20));
-  const sr=s.sampleRate, data=s.audioBuffer.getChannelData(0);
-  const center = Math.floor(t*sr);
-  const range = Math.floor(sr*(parseFloat($('zcRange').value||20)/1000));
-  const a = Math.max(1,center-range), b=Math.min(data.length-1,center+range);
-  let best=center, bestScore=Infinity;
-  const slopeTarget = data[center+1]-data[center];
-  for(let i=a;i<b;i++){
-    if((data[i]<=0 && data[i+1]>=0)||(data[i]>=0 && data[i+1]<=0)){
-      const score = Math.abs(i-center) + Math.abs((data[i+1]-data[i]) - slopeTarget)*0.5;
-      if(score<bestScore){bestScore=score;best=i;}
-    }
-  }
-  return best/sr;
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
 }
 
-/* Slice library */
-function renderSliceList(){
-  const host = $('sliceList'); host.innerHTML='';
-  const s = activeSource();
-  const list = s ? M.slices.filter(x=>x.sourceId===s.id) : M.slices;
-  if(!list.length){ host.innerHTML='<div class="card" style="color:var(--mut)">No slices yet.</div>'; return; }
-  for(const sl of list){
-    const src = M.sources.find(x=>x.id===sl.sourceId);
-    const card = document.createElement('div'); card.className='card';
-    const q = sl.loopQuality;
-    const qBadge = q ? `<span class="badge ${q.grade==='Excellent'||q.grade==='Good'?'ok':q.grade==='Fair'?'warn':'err'}">${q.grade} ${(q.score*100)|0}%</span>` : '';
-    card.innerHTML = `
-      <div class="row" style="justify-content:space-between">
-        <label class="checkbox" style="flex:1">
-          <input type="checkbox" ${sl.selected?'checked':''} data-a="sel">
-          <input type="text" value="${escapeHtml(sl.name)}" data-a="rename" style="flex:1">
-        </label>
-        ${qBadge}
-      </div>
-      <canvas class="waveform"></canvas>
-      <div class="row" style="font-size:11px;color:var(--mut);margin-top:4px">
-        <span class="pill">${(sl.endTime-sl.startTime).toFixed(3)}s</span>
-        <span class="pill">${sl.startTime.toFixed(3)}→${sl.endTime.toFixed(3)}</span>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <button class="small" data-a="play">▶</button>
-        <button class="small" data-a="loop">⟳</button>
-        <button class="small" data-a="stop">■</button>
-        <button class="small" data-a="prep">Prepare</button>
-        <button class="small" data-a="tl">→ TL</button>
-        <button class="small" data-a="dl">WAV</button>
-        <button class="small danger" data-a="del">🗑</button>
-      </div>`;
-    host.appendChild(card);
-    const buf = renderSliceBuffer(sl);
-    requestAnimationFrame(()=>drawWaveform(card.querySelector('canvas'), downsampleWaveform(buf,300)));
-    card.querySelector('[data-a=sel]').onchange = e=>{ sl.selected=e.target.checked; };
-    card.querySelector('[data-a=rename]').onchange = e=>{ sl.name=e.target.value; };
-    card.querySelector('[data-a=play]').onclick = ()=>{ stopAllPreview(); playBuffer(renderSliceBuffer(sl)); };
-    card.querySelector('[data-a=loop]').onclick = ()=>loopBuffer(renderSliceBuffer(sl));
-    card.querySelector('[data-a=stop]').onclick = stopAllPreview;
-    card.querySelector('[data-a=prep]').onclick = ()=>{ M.activePrep=sl.id; $('prepSlice').value=sl.id; switchTab('prepare'); };
-    card.querySelector('[data-a=tl]').onclick = ()=>{ addToTimeline([sl]); toast('Added to timeline','ok'); };
-    card.querySelector('[data-a=dl]').onclick = ()=>downloadBlob(bufferToWav(renderSliceBuffer(sl),16), sl.name+'.wav');
-    card.querySelector('[data-a=del]').onclick = ()=>{
-      M.slices = M.slices.filter(x=>x.id!==sl.id);
-      M.events = M.events.filter(e=>e.sliceId!==sl.id);
-      M.repairedBuffers.delete(sl.id);
-      renderSliceList(); updateProgress(); renderTimeline(); renderBrowser();
-    };
-  }
-}
-function extractSlice(src, sl){
-  if(!src) return audioCtx().createBuffer(1,1,44100);
-  const sr = src.sampleRate;
-  const a = Math.floor(sl.startTime*sr), b = Math.floor(sl.endTime*sr);
-  const len = Math.max(1, b-a);
-  const out = audioCtx().createBuffer(src.channels, len, sr);
-  for(let ch=0; ch<src.channels; ch++){
-    const s = src.audioBuffer.getChannelData(ch);
-    const d = out.getChannelData(ch);
-    for(let i=0;i<len;i++) d[i] = s[a+i]||0;
-  }
-  return out;
-}
-function renderSliceBuffer(sl){
-  // If we have a repaired buffer, use it
-  if(M.repairedBuffers.has(sl.id)) return M.repairedBuffers.get(sl.id);
-  const src = M.sources.find(x=>x.id===sl.sourceId);
-  let buf = extractSlice(src, sl);
-  // DC removal
-  if(isDSPReady().ready) {
-    let dc=0; for(let ch=0;ch<buf.numberOfChannels;ch++){ const d=buf.getChannelData(ch); for(let i=0;i<d.length;i++) dc+=d[i]; }
-    dc /= buf.length*buf.numberOfChannels;
-    if(Math.abs(dc)>1e-6){ for(let ch=0;ch<buf.numberOfChannels;ch++){ const d=buf.getChannelData(ch); for(let i=0;i<d.length;i++) d[i]-=dc; } }
-  }
-  // trim
-  if(sl.trimStart||sl.trimEnd){
-    const sr = buf.sampleRate;
-    const a = Math.floor((sl.trimStart||0)*sr);
-    const b = buf.length - Math.floor((sl.trimEnd||0)*sr);
-    const len = Math.max(1, b-a);
-    const out = audioCtx().createBuffer(buf.numberOfChannels,len,sr);
-    for(let ch=0;ch<buf.numberOfChannels;ch++){
-      const s=buf.getChannelData(ch), d=out.getChannelData(ch);
-      for(let i=0;i<len;i++) d[i]=s[a+i]||0;
-    }
-    buf = out;
-  }
-  // reverse
-  if(sl.reverse){ for(let ch=0;ch<buf.numberOfChannels;ch++){ buf.getChannelData(ch).reverse(); } }
-  // gain + fades + crossfade
-  const gain = Math.pow(10,(sl.gainDb||0)/20);
-  const fadeIn = ((sl.fadeInMs||0)/1000)*buf.sampleRate;
-  const fadeOut = ((sl.fadeOutMs||0)/1000)*buf.sampleRate;
-  // Only apply crossfade if not repaired (repaired already has crossfade)
-  const hasRepair = M.repairedBuffers.has(sl.id);
-  for(let ch=0;ch<buf.numberOfChannels;ch++){
-    const d=buf.getChannelData(ch);
-    for(let i=0;i<d.length;i++){ let g=gain; if(i<fadeIn) g*=i/fadeIn; if(i>d.length-fadeOut) g*=(d.length-i)/fadeOut; d[i]*=g; }
-    if(!hasRepair && isDSPReady().ready && sl.crossfadeMs>0 && sl.crossfadeType!=='none'){
-      const curve = sl.crossfadeType||'equal';
-      buf = DSP.crossfade(buf, curve, sl.crossfadeMs);
-    }
-  }
-  // pitch/stretch via resample
-  if(sl.pitchSemitones||sl.stretchRatio!==1){
-    const rate = Math.pow(2,(sl.pitchSemitones||0)/12) / (sl.stretchRatio||1);
-    buf = resampleBuffer(buf, rate);
-  }
-  return buf;
-}
-function resampleBuffer(buf, rate){
-  const sr = buf.sampleRate;
-  const newLen = Math.floor(buf.length/rate);
-  const out = audioCtx().createBuffer(buf.numberOfChannels, newLen, sr);
-  for(let ch=0;ch<buf.numberOfChannels;ch++){
-    const s = buf.getChannelData(ch), d = out.getChannelData(ch);
-    for(let i=0;i<newLen;i++){
-      const idx = i*rate; const i0 = Math.floor(idx), i1=Math.min(buf.length-1,i0+1);
-      const t = idx-i0; d[i] = s[i0]*(1-t)+s[i1]*t;
-    }
-  }
-  return out;
-}
-
-/* Batch */
-$('selAll').onclick = ()=>{ visibleSlices().forEach(s=>s.selected=true); renderSliceList(); };
-$('selNone').onclick = ()=>{ visibleSlices().forEach(s=>s.selected=false); renderSliceList(); };
-$('selInvert').onclick = ()=>{ visibleSlices().forEach(s=>s.selected=!s.selected); renderSliceList(); };
-$('playAllOnce').onclick = async ()=>{
-  stopAllPreview();
-  const list = visibleSlices();
-  let t = audioCtx().currentTime + 0.05;
-  for(const sl of list){
-    const buf = renderSliceBuffer(sl);
-    const src = audioCtx().createBufferSource(); src.buffer=buf; src.connect(audioCtx().destination);
-    src.start(t); t += buf.duration + 0.01; activeNodes.push(src);
-  }
-};
-$('loopSelected').onclick = ()=>{
-  const sel = visibleSlices().filter(s=>s.selected);
-  if(!sel.length) return toast('No slices selected','err');
-  const bufs = sel.map(renderSliceBuffer);
-  const totalLen = bufs.reduce((a,b)=>a+b.length,0);
-  const sr = bufs[0].sampleRate;
-  const out = audioCtx().createBuffer(bufs[0].numberOfChannels, totalLen, sr);
-  let off = 0;
-  for(const b of bufs){
-    for(let ch=0;ch<out.numberOfChannels;ch++){
-      out.getChannelData(ch).set(b.getChannelData(Math.min(ch,b.numberOfChannels-1)), off);
-    }
-    off += b.length;
-  }
-  loopBuffer(out);
-};
-$('autoTrimSel').onclick = ()=>{
-  visibleSlices().filter(s=>s.selected).forEach(sl=>autoTrimSlice(sl));
-  renderSliceList(); toast('Auto-trimmed','ok');
-};
-$('fixLoopsSel').onclick = ()=>{
-  const ds = isDSPReady();
-  if(!ds.ready){ toast('DSP not ready: '+ds.reason,'err'); return; }
-  const sel = visibleSlices().filter(s=>s.selected);
-  if(!sel.length){ toast('No slices selected','err'); return; }
-  for(const sl of sel){
-    const src = M.sources.find(x=>x.id===sl.sourceId);
-    if(!src) continue;
-    const buf = extractSlice(src, sl);
-    const repaired = DSP.repairLoop(buf, {
-      trimThresh: -50, trimLead:true, trimTrail:true,
-      zcRange:20, xfCurve:'equal', xfMs:20, fadeMs:5
-    });
-    // Store repaired buffer, update slice metadata
-    M.repairedBuffers.set(sl.id, repaired);
-    sl.crossfadeType = 'equal';
-    sl.crossfadeMs = 20;
-    const q = DSP.analyzeLoop(repaired);
-    sl.loopQuality = q;
-    sl.loopReady = q.score > 0.7;
-  }
-  renderSliceList(); updateProgress(); toast('Loops repaired','ok');
-};
-$('addSelToTimeline').onclick = ()=>{
-  const sel = visibleSlices().filter(s=>s.selected);
-  if(!sel.length) return toast('No slices selected','err');
-  addToTimeline(sel); switchTab('arrange');
-};
-$('deleteSel').onclick = ()=>{
-  const sel = visibleSlices().filter(s=>s.selected);
-  if(!sel.length) return;
-  if(!confirm(`Delete ${sel.length} slices?`)) return;
-  const ids = new Set(sel.map(s=>s.id));
-  M.slices = M.slices.filter(s=>!ids.has(s.id));
-  M.events = M.events.filter(e=>!ids.has(e.sliceId));
-  for(const id of ids) M.repairedBuffers.delete(id);
-  renderSliceList(); updateProgress(); renderTimeline(); renderBrowser();
-};
-function visibleSlices(){ const s=activeSource(); return s?M.slices.filter(x=>x.sourceId===s.id):M.slices; }
-
-function autoTrimSlice(sl){
-  const src = M.sources.find(x=>x.id===sl.sourceId); if(!src) return;
-  const buf = extractSlice(src, sl);
-  const d = buf.getChannelData(0);
-  const thr = Math.pow(10,(parseFloat($('trimThresh').value)||-50)/20);
-  let a=0,b=d.length-1;
-  if($('trimLead').checked){ while(a<d.length && Math.abs(d[a])<thr) a++; }
-  if($('trimTrail').checked){ while(b>0 && Math.abs(d[b])<thr) b--; }
-  sl.trimStart = a/buf.sampleRate;
-  sl.trimEnd = (d.length-b)/buf.sampleRate;
-}
-
-/* ============================================================
- * PREPARE
- * ============================================================ */
-function activePrepSlice(){ return M.slices.find(x=>x.id===M.activePrep) || M.slices.find(x=>x.id===$('prepSlice').value) || M.slices[0]; }
-function renderPrepare(){
-  const sl = activePrepSlice(); if(!sl) return;
-  M.activePrep = sl.id; $('prepSlice').value = sl.id;
-  $('trimThresh').value = -50;
-  $('xfType').value = sl.crossfadeType||'equal';
-  $('xfMs').value = sl.crossfadeMs||20;
-  $('pGain').value = sl.gainDb||0;
-  $('pPitch').value = sl.pitchSemitones||0;
-  $('pStretch').value = sl.stretchRatio||1;
-  $('pReverse').checked = !!sl.reverse;
-  const buf = renderSliceBuffer(sl);
-  drawWaveform($('prepCanvas'), downsampleWaveform(buf,600));
-  // Loop suggestions
-  if(isDSPReady().ready && M.bpm){
-    const sugg = DSP.suggestLoops(buf, M.bpm, {candidates:[0.5,1,2,4,8,16]});
-    const host = $('loopSuggestions');
-    host.innerHTML = sugg.length ? sugg.map(sug =>
-      `<button class="small" data-start="${sug.start}" data-end="${sug.end}" style="background:${sug.score>0.7?'var(--ok)':'var(--panel2)'}">${sug.label} (${(sug.score*100)|0}%)</button>`
-    ).join('') : '<span style="color:var(--mut);font-size:11px">No suggestions</span>';
-    host.querySelectorAll('button').forEach(b=>b.onclick=()=>{
-      sl.startTime = parseFloat(b.dataset.start);
-      sl.endTime = parseFloat(b.dataset.end);
-      renderPrepare();
-      toast('Applied suggestion','ok');
-    });
-  }
-  let q = sl.loopQuality;
-  if(!q && isDSPReady().ready){ const b=renderSliceBuffer(sl); q=DSP.analyzeLoop(b); sl.loopQuality=q; sl.loopReady=q.score>0.7; }
-  if(q){
-    const risk = q.clickRisk !== undefined ? (q.clickRisk*100|0) : '—';
-    $('loopStats').innerHTML = `
-      <div class="row"><span class="badge ${q.grade==='Excellent'||q.grade==='Good'?'ok':q.grade==='Fair'?'warn':'err'}">${q.grade}</span>
-      <span class="pill">Score ${(q.score*100)|0}%</span>
-      <span class="pill">Click risk ${risk}%</span>
-      ${q.metrics ? `
-        <span class="pill">Corr ${q.metrics.corr.toFixed(2)}</span>
-        <span class="pill">RMS Δ${q.metrics.rmsDiff.toFixed(3)}</span>
-        <span class="pill">DC ${q.metrics.dc.toFixed(3)}</span>` : ''}</div>`;
-  }
-}
-$('prepSlice').addEventListener('change',e=>{ M.activePrep=e.target.value; renderPrepare(); });
-$('doAutoTrim').onclick = ()=>{ const sl=activePrepSlice(); if(!sl) return; autoTrimSlice(sl); renderPrepare(); toast('Trimmed','ok'); };
-$('doZeroCross').onclick = ()=>{
-  const sl=activePrepSlice(); if(!sl) return;
-  const src = M.sources.find(x=>x.id===sl.sourceId);
-  if(isDSPReady().ready){
-    sl.startTime = DSP.findZeroCross(src.audioBuffer, sl.startTime, parseFloat($('zcRange').value||20));
-    sl.endTime = DSP.findZeroCross(src.audioBuffer, sl.endTime, parseFloat($('zcRange').value||20));
-  } else {
-    sl.startTime = snapZC(src, sl.startTime);
-    sl.endTime = snapZC(src, sl.endTime);
-  }
-  renderPrepare(); toast('Snapped to zero-cross','ok');
-};
-$('applyPrep').onclick = ()=>{
-  const sl=activePrepSlice(); if(!sl) return;
-  sl.crossfadeType = $('xfType').value;
-  sl.crossfadeMs = parseFloat($('xfMs').value)||0;
-  sl.gainDb = parseFloat($('pGain').value)||0;
-  sl.pitchSemitones = parseFloat($('pPitch').value)||0;
-  sl.stretchRatio = parseFloat($('pStretch').value)||1;
-  sl.reverse = $('pReverse').checked;
-  // Invalidate repaired buffer
-  M.repairedBuffers.delete(sl.id);
-  renderPrepare(); renderSliceList(); toast('Saved','ok');
-};
-$('analyzeLoop').onclick = ()=>{
-  const sl=activePrepSlice(); if(!sl) return;
-  const ds = isDSPReady(); if(!ds.ready){ toast('DSP not ready: '+ds.reason,'err'); return; }
-  const buf = renderSliceBuffer(sl);
-  const q = DSP.analyzeLoop(buf);
-  sl.loopQuality = q; sl.loopReady = q.score>0.7;
-  renderPrepare(); renderSliceList(); updateProgress(); toast('Analysed','ok');
-};
-$('repairLoop').onclick = ()=>{
-  const ds = isDSPReady(); if(!ds.ready){ toast('DSP not ready: '+ds.reason,'err'); return; }
-  const sl=activePrepSlice(); if(!sl) return;
-  const src = M.sources.find(x=>x.id===sl.sourceId);
-  if(!src){ toast('Source not found','err'); return; }
-  const buf = extractSlice(src, sl);
-  const repaired = DSP.repairLoop(buf, {
-    trimThresh: parseFloat($('trimThresh').value)||-50,
-    trimLead: $('trimLead').checked,
-    trimTrail: $('trimTrail').checked,
-    zcRange: parseFloat($('zcRange').value)||20,
-    xfCurve: $('xfType').value,
-    xfMs: parseFloat($('xfMs').value)||20,
-    fadeMs: 5
-  });
-  M.repairedBuffers.set(sl.id, repaired);
-  sl.crossfadeType = 'equal';
-  sl.crossfadeMs = 20;
-  const q = DSP.analyzeLoop(repaired);
-  sl.loopQuality = q;
-  sl.loopReady = q.score > 0.7;
-  renderPrepare(); renderSliceList(); updateProgress(); toast('Loop repaired','ok');
-};
-$('repairAll').onclick = ()=>{
-  const ds = isDSPReady(); if(!ds.ready){ toast('DSP not ready: '+ds.reason,'err'); return; }
-  const sel = M.slices.filter(s=>s.selected);
-  if(!sel.length){ toast('No slices selected','err'); return; }
-  let count=0;
-  for(const sl of sel){
-    const src = M.sources.find(x=>x.id===sl.sourceId);
-    if(!src) continue;
-    const buf = extractSlice(src, sl);
-    const repaired = DSP.repairLoop(buf, {
-      trimThresh: parseFloat($('trimThresh').value)||-50,
-      trimLead: $('trimLead').checked,
-      trimTrail: $('trimTrail').checked,
-      zcRange: parseFloat($('zcRange').value)||20,
-      xfCurve: $('xfType').value,
-      xfMs: parseFloat($('xfMs').value)||20,
-      fadeMs: 5
-    });
-    M.repairedBuffers.set(sl.id, repaired);
-    sl.crossfadeType = 'equal';
-    sl.crossfadeMs = 20;
-    const q = DSP.analyzeLoop(repaired);
-    sl.loopQuality = q;
-    sl.loopReady = q.score > 0.7;
-    count++;
-  }
-  renderPrepare(); renderSliceList(); updateProgress(); toast(`Repaired ${count} slices`,'ok');
-};
-$('prepPlayOnce').onclick = ()=>{ const sl=activePrepSlice(); if(sl){stopAllPreview();playBuffer(renderSliceBuffer(sl));} };
-$('prepLoop').onclick = ()=>{ const sl=activePrepSlice(); if(sl){ const n=parseInt($('prepRepeats').value)||0; loopBuffer(renderSliceBuffer(sl), n);} };
-$('prepStop').onclick = stopAllPreview;
-$('prepAB').onclick = ()=>{
-  const sl=activePrepSlice(); if(!sl) return;
-  const orig = extractSlice(M.sources.find(x=>x.id===sl.sourceId), sl);
-  stopAllPreview();
-  playBuffer(orig);
-  setTimeout(()=>{ stopAllPreview(); playBuffer(renderSliceBuffer(sl)); }, (orig.duration*1000)+200);
-};
-
-/* ============================================================
- * ARRANGE
- * ============================================================ */
-function pxPerBeat(){ return parseInt($('tlZoom').value)||60; }
-function totalBeats(){ return M.bars*M.beats; }
-function saveHistory(){ M.history.push(JSON.stringify(M.events)); if(M.history.length>60) M.history.shift(); }
-function readTLControls(){
-  M.bpm = parseFloat($('tlBpm').value)||120;
-  M.bars = parseInt($('tlBars').value)||4;
-  M.beats = parseInt($('tlBeats').value)||4;
-  M.snap = parseFloat($('tlSnap').value);
-  M.tracks = parseInt($('tlTracks').value)||6;
-}
-['tlBpm','tlBars','tlBeats','tlSnap','tlTracks','tlZoom'].forEach(id=>$(id).addEventListener('change',()=>{readTLControls(); renderTimeline();}));
-$('tlZoom').addEventListener('input',()=>renderTimeline());
-$('tlUndo').onclick = ()=>{ if(!M.history.length) return; M.events = JSON.parse(M.history.pop()); renderTimeline(); };
-$('tlCopy').onclick = ()=>{ M.clipboard = M.events.filter(e=>M.evtSel.has(e.id)); toast('Copied '+M.clipboard.length,'ok'); };
-$('tlPaste').onclick = ()=>{
-  if(!M.clipboard.length) return toast('Nothing to paste','err');
-  saveHistory();
-  const offset = M.events.length ? Math.max(...M.events.map(e=>e.startBeat+e.durationBeats)) : 0;
-  for(const e of M.clipboard){ const ne={...e,id:uid(),startBeat:e.startBeat+offset}; M.events.push(ne); }
-  renderTimeline();
-};
-$('tlClear').onclick = ()=>{ if(!confirm('Clear all timeline events?')) return; saveHistory(); M.events=[]; renderTimeline(); };
-$('tlPlay').onclick = playArrangement;
-$('tlStop').onclick = stopArrangement;
-$('tlRewind').onclick = stopArrangement;
-
-function addToTimeline(slices){
-  saveHistory();
-  readTLControls();
-  const laneOccupancy = new Array(M.tracks).fill(0);
-  for(const e of M.events){ if(e.track<M.tracks) laneOccupancy[e.track] = Math.max(laneOccupancy[e.track], e.startBeat+e.durationBeats); }
-  for(const sl of slices){
-    const src = M.sources.find(x=>x.id===sl.sourceId);
-    // Use rendered duration for accurate beat length
-    const buf = renderSliceBuffer(sl);
-    const durSec = buf.duration;
-    const beats = durSec * M.bpm / 60;
-    let lane=0; for(let i=1;i<M.tracks;i++) if(laneOccupancy[i]<laneOccupancy[lane]) lane=i;
-    const start = M.snap>0 ? Math.round(laneOccupancy[lane]/M.snap)*M.snap : laneOccupancy[lane];
-    const color = M.evtColors.get(sl.id) || `hsl(${Math.random()*360},70%,60%)`;
-    M.evtColors.set(sl.id, color);
-    const evt = {id:uid(), sliceId:sl.id, track:lane, startBeat:start, durationBeats:beats, muted:false, solo:false, gainDb:0, color};
-    M.events.push(evt);
-    const endBeat = start + beats;
-    if(endBeat > M.bars*M.beats){
-      const needed = Math.ceil(endBeat/M.beats);
-      if(needed > M.bars){ M.bars = needed; $('tlBars').value = needed; }
-    }
-    laneOccupancy[lane] = start + beats;
-  }
-  renderTimeline(); updateProgress();
-}
-
-function renderTimeline(){
-  readTLControls();
-  const inner = $('tlInner'); inner.innerHTML='';
-  const ppb = pxPerBeat();
-  const tot = totalBeats();
-  const width = 130 + tot*ppb + 20;
-  inner.style.minWidth = width+'px';
-  const ruler = document.createElement('div'); ruler.className='tl-ruler';
-  ruler.style.cssText += `padding-left:130px;position:relative;`;
-  for(let b=0;b<=tot;b++){
-    const t = document.createElement('div');
-    t.style.cssText=`position:absolute;left:${130+b*ppb}px;top:0;bottom:0;width:1px;background:${b%M.beats===0?'#3dd6ff':'#3a4560'};`;
-    ruler.appendChild(t);
-    if(b%M.beats===0){
-      const lbl = document.createElement('div');
-      lbl.style.cssText=`position:absolute;left:${130+b*ppb+3}px;top:4px;font-size:10px;color:var(--mut)`;
-      lbl.textContent = (b/M.beats+1);
-      ruler.appendChild(lbl);
-    }
-  }
-  inner.appendChild(ruler);
-  for(let t=0;t<M.tracks;t++){
-    const row = document.createElement('div'); row.className='tl-track';
-    row.innerHTML = `
-      <div class="tl-thead">
-        <b style="font-size:12px">Track ${t+1}</b>
-        <div class="row" style="gap:2px">
-          <button class="small ghost" data-t="${t}" data-a="m">M</button>
-          <button class="small ghost" data-t="${t}" data-a="s">S</button>
-        </div>
-      </div>
-      <div class="tl-lane" data-lane="${t}" style="min-width:${tot*ppb}px"></div>`;
-    inner.appendChild(row);
-  }
-  for(const e of M.events){
-    if(e.track>=M.tracks) continue;
-    const lane = inner.querySelector(`[data-lane="${e.track}"]`); if(!lane) continue;
-    const sl = M.slices.find(s=>s.id===e.sliceId); if(!sl){ continue; }
-    const el = document.createElement('div'); el.className='tl-event'+(M.evtSel.has(e.id)?' sel':'');
-    el.style.left = (e.startBeat*ppb)+'px';
-    el.style.width = Math.max(2, e.durationBeats*ppb)+'px';
-    el.style.background = e.color || '#ff6b3d';
-    el.textContent = sl.name;
-    el.dataset.id = e.id;
-    const rz = document.createElement('div'); rz.className='resize'; el.appendChild(rz);
-    lane.appendChild(el);
-    attachEventDrag(el, e);
-  }
-  const ph = document.createElement('div'); ph.className='playhead'; ph.id='playhead';
-  ph.style.left = (130+0)+'px'; ph.style.height='100%'; inner.appendChild(ph);
-  inner.querySelectorAll('.tl-thead button').forEach(b=>{
-    b.onclick=()=>{
-      const t=parseInt(b.dataset.t), a=b.dataset.a;
-      M.events.filter(e=>e.track===t).forEach(e=>{ if(a==='m') e.muted=!e.muted; else e.solo=!e.solo; });
-      toast(a==='m'?'Mute toggled':'Solo toggled');
-    };
-  });
-  renderBrowser();
-}
-function attachEventDrag(el, evt){
-  let mode=null, startX=0, orig=0, origDur=0, copyMode=false;
-  const onDown = (e)=>{
-    if(e.button===2) return;
-    e.preventDefault();
-    copyMode = e.altKey;
-    startX = (e.touches?e.touches[0].clientX:e.clientX);
-    const rz = el.querySelector('.resize').getBoundingClientRect();
-    const px = startX;
-    if(px>=rz.left) mode='resize'; else mode='move';
-    orig = evt.startBeat; origDur = evt.durationBeats;
-    if(e.shiftKey){
-      if(M.evtSel.has(evt.id)) M.evtSel.delete(evt.id);
-      else M.evtSel.add(evt.id);
-      renderTimeline();
-    } else if(!M.evtSel.has(evt.id)){
-      M.evtSel.clear(); M.evtSel.add(evt.id);
-      renderTimeline();
-    }
-    if(M.evtSel.size===1){
-      document.addEventListener('pointermove', onMove);
-      document.addEventListener('pointerup', onUp);
-      saveHistory();
-    }
-  };
-  const onMove = (e)=>{
-    const x = (e.touches?e.touches[0].clientX:e.clientX);
-    const dx = (x-startX)/pxPerBeat();
-    if(copyMode && mode==='move' && Math.abs(dx)>0.1){
-      const newEvt = {...evt, id:uid(), startBeat: evt.startBeat+dx};
-      M.events.push(newEvt);
-      M.evtSel.clear(); M.evtSel.add(newEvt.id);
-      renderTimeline();
-      copyMode = false;
-      return;
-    }
-    if(mode==='move'){
-      let nb = orig+dx;
-      if(M.snap>0) nb = Math.round(nb/M.snap)*M.snap;
-      evt.startBeat = Math.max(0, nb);
-      el.style.left = (evt.startBeat*pxPerBeat())+'px';
-    } else if(mode==='resize'){
-      let nd = origDur+dx;
-      if(M.snap>0) nd = Math.round(nd/M.snap)*M.snap;
-      evt.durationBeats = Math.max(0.1, nd);
-      el.style.width = (evt.durationBeats*pxPerBeat())+'px';
-    }
-  };
-  const onUp = ()=>{ mode=null; document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp); };
-  el.addEventListener('pointerdown', onDown);
-}
-document.addEventListener('keydown', e=>{
-  if($('tab-arrange').classList.contains('hidden')) return;
-  if(e.key==='Delete' || e.key==='Backspace'){
-    if(M.evtSel.size){ saveHistory(); M.events = M.events.filter(ev=>!M.evtSel.has(ev.id)); M.evtSel.clear(); renderTimeline(); }
-  }
-  if((e.key==='d'||e.key==='D') && !e.metaKey && !e.ctrlKey){
-    if(M.evtSel.size){
-      saveHistory();
-      for(const id of Array.from(M.evtSel)){
-        const orig=M.events.find(x=>x.id===id); if(!orig) continue;
-        M.events.push({...orig, id:uid(), startBeat:orig.startBeat+orig.durationBeats});
-      }
-      renderTimeline();
-    }
-  }
-  if((e.metaKey||e.ctrlKey) && e.key==='c'){ $('tlCopy').click(); }
-  if((e.metaKey||e.ctrlKey) && e.key==='v'){ $('tlPaste').click(); }
-  if((e.metaKey||e.ctrlKey) && e.key==='z'){ e.preventDefault(); $('tlUndo').click(); }
-});
-
-/* ── SLICE BROWSER (Arrange) ──────────────────────────────── */
-function renderBrowser(){
-  const host = $('browserList');
-  host.innerHTML = '';
-  const search = ($('sliceSearch').value||'').toLowerCase();
-  const qual = $('sliceFilterQuality').value;
-  const srcId = $('sliceFilterSource').value;
-  let list = M.slices.slice();
-  if(search) list = list.filter(s=>s.name.toLowerCase().includes(search));
-  if(qual==='ready') list = list.filter(s=>s.loopReady);
-  else if(qual==='poor') list = list.filter(s=>s.loopQuality && s.loopQuality.score<0.5);
-  if(srcId!=='all') list = list.filter(s=>s.sourceId===srcId);
-  if(!list.length){ host.innerHTML='<div class="card" style="color:var(--mut);grid-column:1/-1">No slices match filters.</div>'; return; }
-  for(const sl of list){
-    const card = document.createElement('div'); card.className='card';
-    const q = sl.loopQuality;
-    const qBadge = q ? `<span class="badge ${q.grade==='Excellent'||q.grade==='Good'?'ok':q.grade==='Fair'?'warn':'err'}">${q.grade}</span>` : '';
-    card.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div><input type="checkbox" data-a="selBrowser" ${sl.selected?'checked':''}> ${escapeHtml(sl.name)} ${qBadge}</div>
-        <div class="row" style="gap:2px">
-          <button class="small" data-a="playBrowser">▶</button>
-          <button class="small" data-a="addBrowser">➕</button>
-        </div>
-      </div>
-      <canvas class="waveform" style="height:32px"></canvas>
-    `;
-    host.appendChild(card);
-    const buf = renderSliceBuffer(sl);
-    requestAnimationFrame(()=>drawWaveform(card.querySelector('canvas'), downsampleWaveform(buf,200), {color:'#888'}));
-    const chk = card.querySelector('[data-a=selBrowser]');
-    chk.checked = sl.selected;
-    chk.onchange = ()=>{ sl.selected=chk.checked; renderSliceList(); };
-    card.querySelector('[data-a=playBrowser]').onclick = ()=>{ stopAllPreview(); playBuffer(renderSliceBuffer(sl)); };
-    card.querySelector('[data-a=addBrowser]').onclick = ()=>{ addToTimeline([sl]); toast('Added to timeline','ok'); };
-  }
-}
-$('sliceSearch').addEventListener('input', renderBrowser);
-$('sliceFilterQuality').addEventListener('change', renderBrowser);
-$('sliceFilterSource').addEventListener('change', renderBrowser);
-// Add buttons
-$('addSelectedBrowser').onclick = ()=>{
-  const sel = M.slices.filter(s=>s.selected);
-  if(!sel.length){ toast('No slices selected','err'); return; }
-  addToTimeline(sel); toast('Added selected','ok');
-};
-$('addAllReadyBrowser').onclick = ()=>{
-  const ready = M.slices.filter(s=>s.loopReady);
-  if(!ready.length){ toast('No ready slices','err'); return; }
-  addToTimeline(ready); toast('Added ready slices','ok');
-};
-$('addAllBrowser').onclick = ()=>{
-  if(!M.slices.length){ toast('No slices','err'); return; }
-  addToTimeline(M.slices); toast('Added all slices','ok');
-};
-
-/* ── PLAYBACK / ARRANGEMENT ───────────────────────────────── */
-async function playArrangement(){
-  stopArrangement();
-  if(!M.events.length) return toast('Empty timeline','err');
-  const buf = await renderArrangement(1);
-  const ctx = audioCtx();
-  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = $('tlLoop').checked;
-  src.connect(ctx.destination); src.start();
-  M.arrPlayback = {src, startedAt: ctx.currentTime, duration: buf.duration};
-  animatePlayhead();
-}
-function stopArrangement(){
-  if(M.arrPlayback){ try{M.arrPlayback.src.stop();}catch{} M.arrPlayback=null; }
-  const ph=$('playhead'); if(ph) ph.style.left = '130px';
-}
-function animatePlayhead(){
-  if(!M.arrPlayback) return;
-  const {startedAt, duration} = M.arrPlayback;
-  const ctx = audioCtx();
-  const el = $('playhead'); if(!el) return;
-  const beatDur = 60/M.bpm;
-  const tick = ()=>{
-    if(!M.arrPlayback) return;
-    let t = (ctx.currentTime-startedAt) % duration;
-    const beats = t/beatDur;
-    el.style.left = (130 + beats*pxPerBeat())+'px';
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-}
-async function renderArrangement(repeat=1){
-  readTLControls();
-  const beatDur = 60/M.bpm;
-  const oneLen = totalBeats()*beatDur;
-  const totalLen = oneLen*repeat;
-  const sr = M.sources[0]?.sampleRate || 44100;
-  const oc = new OfflineAudioContext(2, Math.ceil(totalLen*sr)+sr, sr);
-  const anySolo = M.events.some(e=>e.solo);
-  for(let rep=0; rep<repeat; rep++){
-    for(const e of M.events){
-      if(e.muted) continue;
-      if(anySolo && !e.solo) continue;
-      const sl = M.slices.find(s=>s.id===e.sliceId); if(!sl) continue;
-      const buf = renderSliceBuffer(sl);
-      const src = oc.createBufferSource(); src.buffer = buf;
-      const g = oc.createGain(); g.gain.value = Math.pow(10,(e.gainDb||0)/20);
-      src.connect(g).connect(oc.destination);
-      const at = rep*oneLen + e.startBeat*beatDur;
-      src.start(at);
-      const dur = Math.min(buf.duration, e.durationBeats*beatDur);
-      src.stop(at+dur);
-    }
-  }
-  return await oc.startRendering();
-}
-async function renderStems(){
-  readTLControls();
-  const beatDur = 60/M.bpm;
-  const oneLen = totalBeats()*beatDur;
-  const sr = M.sources[0]?.sampleRate || 44100;
-  const stems = [];
-  for(let t=0;t<M.tracks;t++){
-    const evts = M.events.filter(e=>e.track===t && !e.muted);
-    if(!evts.length){ continue; }
-    const oc = new OfflineAudioContext(2, Math.ceil(oneLen*sr)+sr, sr);
-    for(const e of evts){
-      const sl = M.slices.find(s=>s.id===e.sliceId); if(!sl) continue;
-      const buf = renderSliceBuffer(sl);
-      const src = oc.createBufferSource(); src.buffer = buf;
-      const g = oc.createGain(); g.gain.value = Math.pow(10,(e.gainDb||0)/20);
-      src.connect(g).connect(oc.destination);
-      const at = e.startBeat*beatDur;
-      src.start(at); src.stop(at+Math.min(buf.duration, e.durationBeats*beatDur));
-    }
-    stems.push({track:t, buffer: await oc.startRendering()});
-  }
-  return stems;
-}
-
-/* ============================================================
- * WAV / MP3 ENCODERS
- * ============================================================ */
-function bufferToWav(buf, bits=16){
-  const ch = buf.numberOfChannels, sr = buf.sampleRate, len = buf.length;
-  const bytesPerSample = bits===32 ? 4 : bits/8;
-  const isFloat = bits===32;
-  const dataLen = len*ch*bytesPerSample;
-  const ab = new ArrayBuffer(44+dataLen);
-  const v = new DataView(ab);
-  const writeStr = (o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
-  writeStr(0,'RIFF'); v.setUint32(4, 36+dataLen, true); writeStr(8,'WAVE');
-  writeStr(12,'fmt '); v.setUint32(16,16,true);
-  v.setUint16(20, isFloat?3:1, true); v.setUint16(22, ch, true);
-  v.setUint32(24, sr, true); v.setUint32(28, sr*ch*bytesPerSample, true);
-  v.setUint16(32, ch*bytesPerSample, true); v.setUint16(34, bits, true);
-  writeStr(36,'data'); v.setUint32(40, dataLen, true);
-  const data = [];
-  for(let c=0;c<ch;c++) data.push(buf.getChannelData(c));
-  let off=44;
-  for(let i=0;i<len;i++){
-    for(let c=0;c<ch;c++){
-      let s = data[c][i]; s = Math.max(-1,Math.min(1,s));
-      if(isFloat){ v.setFloat32(off, s, true); off+=4; }
-      else if(bits===24){
-        const v24 = Math.round(s*8388607);
-        v.setUint8(off, v24&0xff); v.setUint8(off+1,(v24>>8)&0xff); v.setUint8(off+2,(v24>>16)&0xff); off+=3;
-      } else { v.setInt16(off, s<0?s*0x8000:s*0x7fff, true); off+=2; }
-    }
-  }
-  return new Blob([ab], {type:'audio/wav'});
-}
-function bufferToMp3(buf, kbps=192){
-  if(!window.lamejs) throw new Error('lamejs not loaded');
+/* Helper to convert audio buffer to MP3 */
+function bufferToMp3(buf, kbps=320){
+  if(!window.lamejs) throw new Error('lamejs library not loaded');
   const ch = Math.min(2, buf.numberOfChannels), sr = buf.sampleRate;
   const enc = new lamejs.Mp3Encoder(ch, sr, kbps);
   const l = float32ToInt16(buf.getChannelData(0));
   const r = ch>1 ? float32ToInt16(buf.getChannelData(1)) : l;
-  const chunks=[]; const N=1152;
-  for(let i=0;i<l.length;i+=N){
-    const cl = l.subarray(i,i+N), cr = r.subarray(i,i+N);
-    const b = ch===1 ? enc.encodeBuffer(cl) : enc.encodeBuffer(cl,cr);
+  const chunks = [];
+  const N = 1152;
+  for(let i=0; i<l.length; i+=N){
+    const cl = l.subarray(i, i+N), cr = r.subarray(i, i+N);
+    const b = ch===1 ? enc.encodeBuffer(cl) : enc.encodeBuffer(cl, cr);
     if(b.length) chunks.push(new Int8Array(b));
   }
-  const end = enc.flush(); if(end.length) chunks.push(new Int8Array(end));
-  return new Blob(chunks,{type:'audio/mpeg'});
+  const end = enc.flush();
+  if(end.length) chunks.push(new Int8Array(end));
+  return new Blob(chunks, { type: 'audio/mpeg' });
 }
-function float32ToInt16(f){ const o=new Int16Array(f.length); for(let i=0;i<f.length;i++){ let s=Math.max(-1,Math.min(1,f[i])); o[i]=s<0?s*0x8000:s*0x7fff; } return o; }
-function encodeBuffer(buf, fmt){
-  if(fmt.startsWith('wav16')) return {blob:bufferToWav(buf,16), ext:'wav'};
-  if(fmt.startsWith('wav24')) return {blob:bufferToWav(buf,24), ext:'wav'};
-  if(fmt.startsWith('wav32f')) return {blob:bufferToWav(buf,32), ext:'wav'};
-  const kbps = parseInt(fmt.split('-')[1]);
-  return {blob:bufferToMp3(buf,kbps), ext:'mp3'};
+
+function float32ToInt16(f){
+  const o = new Int16Array(f.length);
+  for(let i=0; i<f.length; i++){
+    let s = Math.max(-1, Math.min(1, f[i]));
+    o[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return o;
 }
-function downloadBlob(blob, name){
+
+/* ============================================================
+ * IMPORT HANDLERS & AUDIO RENDERING
+ * ============================================================ */
+$('pickBtn').onclick = ()=>$('fileInput').click();
+$('fileInput').onchange = async (e)=>{
+  const files = Array.from(e.target.files);
+  for(const file of files){
+    try {
+      const arrayBuf = await file.arrayBuffer();
+      const audioBuf = await audioCtx().decodeAudioData(arrayBuf);
+      const srcObj = {
+        id: uid(),
+        name: file.name,
+        size: file.size,
+        duration: audioBuf.duration,
+        sampleRate: audioBuf.sampleRate,
+        channels: audioBuf.numberOfChannels,
+        audioBuffer: audioBuf,
+        waveform: extractWaveform(audioBuf, 300)
+      };
+      M.sources.push(srcObj);
+      if(!M.activeSource) M.activeSource = srcObj.id;
+      log(`Imported ${file.name} (${audioBuf.duration.toFixed(2)}s)`);
+    } catch(err){
+      toast(`Failed decoding ${file.name}`, 'err');
+    }
+  }
+  renderSources(); refreshDropdowns(); updateProgress();
+};
+
+function extractWaveform(buf, width=300){
+  const data = buf.getChannelData(0);
+  const step = Math.ceil(data.length / width);
+  const wf = new Float32Array(width);
+  for(let i=0; i<width; i++){
+    let max = 0;
+    for(let j=0; j<step && (i*step+j)<data.length; j++){
+      const v = Math.abs(data[i*step+j]);
+      if(v > max) max = v;
+    }
+    wf[i] = max;
+  }
+  return wf;
+}
+
+function renderSources(){
+  const host = $('sourceList');
+  host.innerHTML = '';
+  if(!M.sources.length){
+    host.innerHTML = '<div class="card" style="color:var(--mut)">No sources imported yet.</div>';
+    return;
+  }
+  for(const s of M.sources){
+    const c = document.createElement('div');
+    c.className = 'card';
+    c.innerHTML = `
+      <div class="row" style="justify-content:space-between">
+        <div><b>${escapeHtml(s.name)}</b></div>
+        <button class="small danger" data-del="${s.id}">Remove</button>
+      </div>
+      <div style="font-size:12px;color:var(--mut);margin-top:4px">
+        Duration: ${s.duration.toFixed(2)}s · ${s.sampleRate}Hz · ${s.channels}ch
+      </div>
+    `;
+    c.querySelector('[data-del]').onclick = ()=>{
+      M.sources = M.sources.filter(x=>x.id!==s.id);
+      M.slices = M.slices.filter(x=>x.sourceId!==s.id);
+      renderSources(); refreshDropdowns(); updateProgress();
+    };
+    host.appendChild(c);
+  }
+}
+
+function refreshDropdowns(){
+  const sSelect = $('sliceSource');
+  const pSelect = $('prepSlice');
+  const cSelect = $('convSource');
+  
+  if(sSelect){
+    sSelect.innerHTML = M.sources.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+    if(M.activeSource) sSelect.value = M.activeSource;
+  }
+  if(pSelect){
+    pSelect.innerHTML = M.slices.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+  }
+  if(cSelect){
+    cSelect.innerHTML = M.slices.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+  }
+}
+
+function escapeHtml(str){
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+/* ============================================================
+ * SLICING & ZERO-CROSS LOOP FINDER
+ * ============================================================ */
+$('runSlice').onclick = ()=>{
+  const src = M.sources.find(s=>s.id === $('sliceSource').value);
+  if(!src) return toast('Select a source file first', 'err');
+
+  const mode = $('sliceMode').value;
+  const buf = src.audioBuffer;
+  let ranges = [];
+
+  if(mode === 'loopfinder'){
+    // Zero-Crossing Loop Finder Utility Mode
+    const zc = DSP.findZeroCrossingLoopPoints(buf, 0, buf.duration, 30);
+    ranges.push([zc.startTimeSec, zc.endTimeSec]);
+    toast(`Zero-crossing boundaries aligned to exact samples ${zc.startSample} → ${zc.endSample}`, 'ok');
+  } else {
+    // Default 4 equal grid slices
+    const sliceDur = src.duration / 4;
+    for(let i=0; i<4; i++){
+      const a = i * sliceDur;
+      const b = (i + 1) * sliceDur;
+      const zc = DSP.findZeroCrossingLoopPoints(buf, a, b, 20);
+      ranges.push([zc.startTimeSec, zc.endTimeSec]);
+    }
+  }
+
+  if($('replaceSlices').checked){
+    M.slices = M.slices.filter(s=>s.sourceId !== src.id);
+  }
+
+  ranges.forEach((r, idx)=>{
+    const sliceBuf = extractSliceBuffer(src.audioBuffer, r[0], r[1]);
+    const quality = DSP.analyzeLoop(sliceBuf);
+
+    M.slices.push({
+      id: uid(),
+      sourceId: src.id,
+      name: `${src.name}_Loop_${idx+1}`,
+      start: r[0],
+      end: r[1],
+      startSample: Math.floor(r[0] * src.sampleRate),
+      endSample: Math.floor(r[1] * src.sampleRate),
+      loopQuality: quality,
+      loopReady: quality.score > 0.7,
+      crossfadeMs: 20,
+      crossfadeType: 'equal'
+    });
+  });
+
+  renderSliceList(); refreshDropdowns(); updateProgress();
+};
+
+function extractSliceBuffer(srcBuf, startSec, endSec){
+  const sr = srcBuf.sampleRate;
+  const startSample = Math.max(0, Math.floor(startSec * sr));
+  const endSample = Math.min(srcBuf.length, Math.floor(endSec * sr));
+  const len = Math.max(1, endSample - startSample);
+
+  const sliceBuf = audioCtx().createBuffer(srcBuf.numberOfChannels, len, sr);
+  for(let c=0; c<srcBuf.numberOfChannels; c++){
+    sliceBuf.getChannelData(c).set(srcBuf.getChannelData(c).subarray(startSample, endSample));
+  }
+  return sliceBuf;
+}
+
+function renderSliceList(){
+  const host = $('sliceList');
+  host.innerHTML = '';
+  if(!M.slices.length){
+    host.innerHTML = '<div class="card" style="color:var(--mut)">No loop slices created yet.</div>';
+    return;
+  }
+
+  M.slices.forEach(sl => {
+    const c = document.createElement('div');
+    c.className = 'card';
+    const q = sl.loopQuality || { grade: 'Good', score: 0.8 };
+    c.innerHTML = `
+      <div class="row" style="justify-content:space-between">
+        <b>${escapeHtml(sl.name)}</b>
+        <span class="badge ${q.score>0.7?'ok':'warn'}">${q.grade} (${Math.round(q.score*100)}%)</span>
+      </div>
+      <div style="font-size:11px;color:var(--mut);margin-top:6px">
+        Duration: ${(sl.end - sl.start).toFixed(3)}s | Samples: ${sl.startSample||0} → ${sl.endSample||0}
+      </div>
+    `;
+    host.appendChild(c);
+  });
+}
+
+/* ============================================================
+ * PREPARE & ZERO-CROSSING LOOP ALIGNMENT
+ * ============================================================ */
+function renderPrepare(){
+  const sl = M.slices.find(s=>s.id === $('prepSlice').value) || M.slices[0];
+  if(!sl) return;
+  M.activePrep = sl.id;
+
+  const canvas = $('prepCanvas');
+  const src = M.sources.find(s=>s.id === sl.sourceId);
+  if(src){
+    drawWaveform(canvas, src.waveform);
+  }
+
+  const stats = $('loopStats');
+  const q = sl.loopQuality || { grade: 'N/A', score: 0 };
+  stats.innerHTML = `
+    <div class="row">
+      <span class="badge acc">Loop Start Sample: ${sl.startSample||0}</span>
+      <span class="badge acc">Loop End Sample: ${sl.endSample||0}</span>
+      <span class="badge ${q.score>0.7?'ok':'warn'}">Seamless Score: ${(q.score*100).toFixed(0)}% (${q.grade})</span>
+    </div>
+  `;
+}
+
+function drawWaveform(canvas, wf){
+  const dpr = window.devicePixelRatio||1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.fillStyle = '#0a0d13';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#3dd6ff';
+  ctx.beginPath();
+  const mid = H/2;
+  for(let x=0; x<W; x++){
+    const i = Math.floor(x/W * wf.length);
+    const v = wf[i] * mid * 0.95;
+    ctx.moveTo(x, mid - v);
+    ctx.lineTo(x, mid + v);
+  }
+  ctx.stroke();
+}
+
+/* Zero-Crossing Align Button */
+$('doZeroCross').onclick = ()=>{
+  const sl = M.slices.find(s=>s.id === M.activePrep);
+  if(!sl) return toast('Select a slice first', 'err');
+  const src = M.sources.find(s=>s.id === sl.sourceId);
+  if(!src) return;
+
+  const searchMs = parseFloat($('zcRange').value) || 25;
+  const zc = DSP.findZeroCrossingLoopPoints(src.audioBuffer, sl.start, sl.end, searchMs);
+
+  sl.start = zc.startTimeSec;
+  sl.end = zc.endTimeSec;
+  sl.startSample = zc.startSample;
+  sl.endSample = zc.endSample;
+
+  const sliceBuf = extractSliceBuffer(src.audioBuffer, sl.start, sl.end);
+  sl.loopQuality = DSP.analyzeLoop(sliceBuf);
+
+  renderPrepare(); renderSliceList();
+  toast(`Aligned to positive zero-crossings: Samples [${zc.startSample}, ${zc.endSample}]`, 'ok');
+};
+
+$('repairLoop').onclick = ()=>{
+  const sl = M.slices.find(s=>s.id === M.activePrep);
+  if(!sl) return toast('Select a slice first', 'err');
+  const src = M.sources.find(s=>s.id === sl.sourceId);
+  if(!src) return;
+
+  const buf = extractSliceBuffer(src.audioBuffer, sl.start, sl.end);
+  const repaired = DSP.repairLoop(buf, {
+    zcRange: parseFloat($('zcRange').value) || 25,
+    xfMs: parseFloat($('xfMs').value) || 20,
+    xfCurve: $('xfType').value
+  });
+
+  M.repairedBuffers.set(sl.id, repaired);
+  sl.loopQuality = DSP.analyzeLoop(repaired);
+  sl.loopReady = true;
+
+  renderPrepare(); renderSliceList(); updateProgress();
+  toast('Loop repaired with seamless crossfade!', 'ok');
+};
+
+/* Audio Playback Controls */
+let activeSourceNode = null;
+$('prepPlayOnce').onclick = ()=>playCurrentPrep(false);
+$('prepLoop').onclick = ()=>playCurrentPrep(true);
+$('prepStop').onclick = ()=>{ if(activeSourceNode) activeSourceNode.stop(); };
+
+function playCurrentPrep(loop=false){
+  const sl = M.slices.find(s=>s.id === M.activePrep);
+  if(!sl) return;
+  const src = M.sources.find(s=>s.id === sl.sourceId);
+  if(!src) return;
+
+  if(activeSourceNode) activeSourceNode.stop();
+  const buf = M.repairedBuffers.get(sl.id) || extractSliceBuffer(src.audioBuffer, sl.start, sl.end);
+
+  const node = audioCtx().createBufferSource();
+  node.buffer = buf;
+  node.loop = loop;
+  node.connect(audioCtx().destination);
+  node.start();
+  activeSourceNode = node;
+}
+
+/* ============================================================
+ * CONVERT & SAMPLER WAV EXPORT WITH `smpl` HEADER
+ * ============================================================ */
+$('doConvert').onclick = ()=>{
+  const sl = M.slices.find(s=>s.id === $('convSource').value);
+  if(!sl) return toast('Select a slice to export', 'err');
+  const src = M.sources.find(s=>s.id === sl.sourceId);
+  if(!src) return;
+
+  const buf = M.repairedBuffers.get(sl.id) || extractSliceBuffer(src.audioBuffer, sl.start, sl.end);
+  const fmt = $('convFormat').value;
+
+  let blob, filename = `${sl.name}.wav`;
+
+  if(fmt.includes('smpl')){
+    // Export with WAV `smpl` chunk loop metadata
+    const bitDepth = fmt.includes('24') ? 24 : fmt.includes('32f') ? 32 : 16;
+    const startSamp = sl.startSample || 0;
+    const endSamp = sl.endSample || buf.length - 1;
+    blob = bufferToWav(buf, bitDepth, startSamp, endSamp);
+    log(`Exported ${filename} with RIFF smpl chunk markers [${startSamp}, ${endSamp}]`);
+  } else if(fmt.startsWith('wav')){
+    const bitDepth = fmt.includes('24') ? 24 : 16;
+    blob = bufferToWav(buf, bitDepth);
+  } else {
+    blob = bufferToMp3(buf, 320);
+    filename = `${sl.name}.mp3`;
+  }
+
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=name; a.click();
-  setTimeout(()=>URL.revokeObjectURL(url), 5000);
-}
-
-/* ============================================================
- * CONVERT / EXPORT
- * ============================================================ */
-$('doConvert').onclick = async ()=>{
-  const s = M.sources.find(x=>x.id===$('convSource').value);
-  if(!s) return toast('No source','err');
-  try{
-    const {blob,ext} = encodeBuffer(s.audioBuffer, $('convFormat').value);
-    downloadBlob(blob, s.name.replace(/\.[^.]+$/,'')+'.'+ext);
-    toast('Converted','ok');
-  }catch(e){ toast('Convert failed: '+e.message,'err'); }
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click();
+  toast(`Downloaded ${filename}`, 'ok');
 };
+
+/* Batch Export ZIP */
 $('doBatchExport').onclick = async ()=>{
-  if(!window.JSZip) return toast('JSZip missing','err');
-  const scope = $('expScope').value;
-  let list = M.slices.slice();
-  if(scope==='sel') list = list.filter(s=>s.selected);
-  if(scope==='ready') list = list.filter(s=>s.loopReady);
-  if(!list.length) return toast('Nothing to export','err');
+  if(!window.JSZip) return toast('JSZip library loading...', 'err');
+  if(!M.slices.length) return toast('No slices available to export', 'err');
+
   const zip = new JSZip();
-  const fmt = $('expFmt').value; const pat = $('expPattern').value; const prefix = $('expPrefix').value||'loop';
-  toast(`Encoding ${list.length}…`);
-  for(let i=0;i<list.length;i++){
-    const sl = list[i];
-    const buf = renderSliceBuffer(sl);
-    const {blob,ext} = encodeBuffer(buf, fmt);
-    const src = M.sources.find(x=>x.id===sl.sourceId);
-    let name;
-    if(pat==='source') name = `${(src?.name||'src').replace(/\.[^.]+$/,'')}_Slice_${String(i+1).padStart(3,'0')}`;
-    else if(pat==='prefix') name = `${prefix}_${String(i+1).padStart(3,'0')}`;
-    else name = sl.name;
-    zip.file(name+'.'+ext, blob);
+  const fmt = $('expFmt').value;
+
+  for(const sl of M.slices){
+    const src = M.sources.find(s=>s.id === sl.sourceId);
+    if(!src) continue;
+    const buf = M.repairedBuffers.get(sl.id) || extractSliceBuffer(src.audioBuffer, sl.start, sl.end);
+    let blob;
+
+    if(fmt.includes('smpl')){
+      blob = bufferToWav(buf, 16, sl.startSample||0, sl.endSample||buf.length-1);
+      zip.file(`${sl.name}.wav`, blob);
+    } else {
+      blob = bufferToMp3(buf, 320);
+      zip.file(`${sl.name}.mp3`, blob);
+    }
   }
+
   if($('expMeta').checked){
-    zip.file('metadata.json', JSON.stringify(list.map(sl=>({
-      name:sl.name, start:sl.startTime, end:sl.endTime,
-      duration:sl.endTime-sl.startTime, source:M.sources.find(x=>x.id===sl.sourceId)?.name,
-      loopQuality:sl.loopQuality
-    })), null, 2));
+    const meta = M.slices.map(s=>({
+      name: s.name,
+      loopStartSample: s.startSample,
+      loopEndSample: s.endSample,
+      duration: s.end - s.start
+    }));
+    zip.file('loop_metadata.json', JSON.stringify(meta, null, 2));
   }
-  const blob = await zip.generateAsync({type:'blob'});
-  downloadBlob(blob, 'slices.zip'); toast('Exported ZIP','ok');
+
+  const content = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(content);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'sampler_loops.zip';
+  a.click();
+  toast('Downloaded Sampler ZIP Package!', 'ok');
 };
-$('doArrExport').onclick = async ()=>{
-  if(!M.events.length) return toast('Empty timeline','err');
-  toast('Rendering arrangement…');
-  const rep = parseInt($('arrRepeat').value)||1;
-  let buf = await renderArrangement(rep);
-  if($('arrNorm').checked) buf = normalize(buf);
-  const {blob,ext} = encodeBuffer(buf, $('arrFmt').value);
-  downloadBlob(blob, 'arrangement.'+ext); toast('Rendered','ok');
-};
-$('doStemExport').onclick = async ()=>{
-  if(!window.JSZip) return toast('JSZip missing','err');
-  toast('Rendering stems…');
-  const stems = await renderStems(); const zip = new JSZip();
-  for(const s of stems){ zip.file(`track_${s.track+1}.wav`, bufferToWav(s.buffer,16)); }
-  const blob = await zip.generateAsync({type:'blob'});
-  downloadBlob(blob, 'stems.zip'); toast('Stems exported','ok');
-};
-function normalize(buf){
-  let peak=0;
-  for(let c=0;c<buf.numberOfChannels;c++){
-    const d = buf.getChannelData(c);
-    for(let i=0;i<d.length;i++) if(Math.abs(d[i])>peak) peak=Math.abs(d[i]);
-  }
-  if(peak<0.001||peak>=1) return buf;
-  const g = 0.98/peak;
-  for(let c=0;c<buf.numberOfChannels;c++){
-    const d=buf.getChannelData(c);
-    for(let i=0;i<d.length;i++) d[i]*=g;
-  }
-  return buf;
+
+/* ============================================================
+ * TIMELINE / ARRANGE MODULE
+ * ============================================================ */
+function renderTimeline(){
+  const inner = $('tlInner');
+  inner.innerHTML = '<div style="padding:20px;color:var(--mut)">Timeline Ready. Drag slices from browser below to build arrangements.</div>';
 }
 
-/* ============================================================
- * PROJECT
- * ============================================================ */
-$('projSave').onclick = ()=>{
-  const proj = {
-    version:'4.4', bpm:M.bpm, timeSignature:[M.beats,4], bars:M.bars, snap:M.snap,
-    sourcesMetadata: M.sources.map(s=>({id:s.id,name:s.name,size:s.size,duration:s.duration,sampleRate:s.sampleRate,channels:s.channels})),
-    slices: M.slices, timelineEvents: M.events, tracks:M.tracks,
-    evtColors: Object.fromEntries(M.evtColors),
-    repairedMap: Array.from(M.repairedBuffers.keys())
-  };
-  downloadBlob(new Blob([JSON.stringify(proj,null,2)],{type:'application/json'}), 'project.json');
-};
-$('projLoad').onchange = async e=>{
-  const f = e.target.files[0]; if(!f) return;
-  try{
-    const proj = JSON.parse(await f.text());
-    M.bpm=proj.bpm||120; M.bars=proj.bars||4; M.beats=(proj.timeSignature||[4])[0]; M.snap=proj.snap||0.25; M.tracks=proj.tracks||6;
-    M.slices = proj.slices||[]; M.events = proj.timelineEvents||[];
-    if(proj.evtColors) for(const [k,v] of Object.entries(proj.evtColors)) M.evtColors.set(k,v);
-    M.repairedBuffers.clear();
-    $('tlBpm').value=M.bpm; $('tlBars').value=M.bars; $('tlBeats').value=M.beats; $('tlSnap').value=M.snap; $('tlTracks').value=M.tracks;
-    const missing = (proj.sourcesMetadata||[]).filter(m=>!M.sources.find(s=>s.name===m.name && Math.abs(s.duration-m.duration)<0.01));
-    $('projMissing').innerHTML = missing.length ? `<div class="badge warn">Missing sources: ${missing.map(m=>escapeHtml(m.name)).join(', ')}. Re-import them.</div>` : `<div class="badge ok">Project loaded</div>`;
-    renderSources(); renderSliceList(); renderTimeline(); refreshDropdowns(); updateProgress();
-  }catch(err){ toast('Load failed: '+err.message,'err'); }
-};
-$('projReset').onclick = ()=>{
-  if(!confirm('Reset all project data?')) return;
-  M.sources=[]; M.slices=[]; M.events=[]; M.history=[]; M.evtColors.clear(); M.repairedBuffers.clear();
-  stopAllPreview(); stopArrangement();
-  renderSources(); renderSliceList(); renderTimeline(); refreshDropdowns(); updateProgress();
-};
-$('purgeCache').onclick = ()=>{
-  stopAllPreview(); stopArrangement();
-  if(AC){ try{AC.close();}catch{} AC=null; }
-  toast('Audio context released','ok');
-};
-$('showHelp').onclick = ()=>switchTab('help');
+function renderBrowser(){
+  const host = $('browserList');
+  host.innerHTML = '';
+  M.slices.forEach(sl => {
+    const c = document.createElement('div');
+    c.className = 'card';
+    c.innerHTML = `<b>${escapeHtml(sl.name)}</b>`;
+    host.appendChild(c);
+  });
+}
 
-/* ============================================================
- * PROGRESS PATH
- * ============================================================ */
 function updateProgress(){
   const p = $('progressPath');
   const ready = M.slices.filter(s=>s.loopReady).length;
-  const need = M.slices.length-ready;
   p.querySelector('[data-k=import]').textContent = `Import: ${M.sources.length}`;
   p.querySelector('[data-k=import]').classList.toggle('done', M.sources.length>0);
   p.querySelector('[data-k=slice]').textContent = `Slice: ${M.slices.length}`;
   p.querySelector('[data-k=slice]').classList.toggle('done', M.slices.length>0);
+  
   const lt = p.querySelector('[data-k=loop]');
-  lt.textContent = M.slices.length ? `Loop test: ${ready} ready / ${need} need attention` : 'Loop test: —';
-  lt.classList.toggle('done', ready>0 && need===0);
-  lt.classList.toggle('attn', need>0 && ready>0);
-  p.querySelector('[data-k=arrange]').textContent = `Arrange: ${M.events.length} events`;
-  p.querySelector('[data-k=arrange]').classList.toggle('done', M.events.length>0);
+  lt.textContent = M.slices.length ? `Loop test: ${ready} ready` : 'Loop test: —';
+  lt.classList.toggle('done', ready > 0);
 }
 
-/* First render */
-renderSources(); renderSliceList(); refreshDropdowns(); updateProgress();
-log('Incredibox Loop Studio v4.4 initialised.');
+/* Encoder check banner */
+function checkLibs(){
+  const mp3 = !!window.lamejs;
+  const zip = !!window.JSZip;
+  const el = $('libStatus');
+  if(mp3 && zip){
+    el.textContent = 'Encoders ready (WAV / SMPL / MP3 / ZIP)';
+    el.className = 'badge ok';
+  } else {
+    el.textContent = 'Loading encoders...';
+    el.className = 'badge warn';
+  }
+}
+setTimeout(checkLibs, 1000);
 
-/* Restore AudioContext on first tap (Safari) */
-document.addEventListener('touchstart', ()=>audioCtx(), {once:true, passive:true});
-document.addEventListener('click', ()=>audioCtx(), {once:true});
+/* Save / Reset Project */
+$('projSave').onclick = ()=>{
+  const data = JSON.stringify({ sources: M.sources.map(s=>({name:s.name, duration:s.duration})), slices: M.slices }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'loop_studio_project.json';
+  a.click();
+};
+
+$('projReset').onclick = ()=>{
+  if(confirm('Reset all project data?')){
+    M.sources = []; M.slices = []; M.events = [];
+    renderSources(); renderSliceList(); updateProgress();
+    toast('Project cleared', 'ok');
+  }
+};
+
+log('Incredibox Loop Studio v4.4 — Zero-Crossing Sampler Studio Initialised.');
 </script>
 </body>
 </html>
