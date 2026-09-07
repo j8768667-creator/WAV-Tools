@@ -1,108 +1,414 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>WAV Batch Trimmer</title>
-
-https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.jsscript>
-app.jsscript>
-
-<style>
-body{
-    margin:0;
-    padding:20px;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-    background:#f5f5f7;
-}
-
-.container{
-    max-width:900px;
-    margin:auto;
-    background:white;
-    padding:24px;
-    border-radius:16px;
-    box-shadow:0 2px 10px rgba(0,0,0,.1);
-}
-
-h1{
-    color:#2563eb;
-    margin-top:0;
-}
-
-label{
-    display:block;
-    margin-top:20px;
-    margin-bottom:8px;
-    font-weight:600;
-}
-
-input[type=file],
-input[type=number]{
-    width:100%;
-    padding:10px;
-    font-size:16px;
-}
-
-button{
-    margin-top:20px;
-    background:#2563eb;
-    color:white;
-    border:none;
-    padding:12px 18px;
-    border-radius:8px;
-    font-size:16px;
-    cursor:pointer;
-}
-
-button:hover{
-    background:#1d4ed8;
-}
-
-button:disabled{
-    background:#999;
-}
-
-progress{
-    width:100%;
-    height:24px;
-    margin-top:15px;
-}
-
-#status{
-    margin-top:20px;
-    border:1px solid #ddd;
-    border-radius:8px;
-    padding:10px;
-    min-height:120px;
-    white-space:pre-wrap;
-    overflow:auto;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WAV Batch Trimmer</title>
+  <!-- Tailwind CSS CDN for utility styles -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- JSZip for multi-file packaging -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    /* iOS WebKit touch handling and tap optimization */
+    html, body {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    input[type="number"], input[type="text"] {
+      user-select: auto;
+      -webkit-user-select: auto;
+    }
+    /* Touch target strict adherence (44x44px min bounding area) */
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  </style>
 </head>
-<body>
+<body class="bg-stone-900 text-stone-100 antialiased min-h-screen flex flex-col p-4 md:p-8">
 
-<div class="container">
+  <main class="max-w-4xl w-full mx-auto flex-1 flex flex-col gap-6">
+    <!-- Header -->
+    <header class="border-b border-stone-700 pb-4">
+      <h1 class="text-xl font-bold tracking-tight text-white uppercase flex items-center gap-2">
+        <span class="w-3 h-3 bg-emerald-500 rounded-sm inline-block"></span>
+        WAV Batch Duration Trimmer
+      </h1>
+      <p class="text-xs text-stone-400 mt-1">iPadOS Touch-Optimized | Client-Side Web Audio Processing</p>
+    </header>
 
-<h1>WAV Batch Trimmer</h1>
+    <!-- Settings and File Input Panel -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-stone-800/80 p-5 rounded-lg border border-stone-700 shadow-sm">
+      <!-- File Selector -->
+      <div class="flex flex-col gap-2">
+        <label for="fileInput" class="text-xs font-semibold uppercase tracking-wider text-stone-300">
+          Select WAV Files
+        </label>
+        <div class="relative">
+          <input 
+            type="file" 
+            id="fileInput" 
+            accept=".wav,audio/wav,audio/x-wav" 
+            multiple 
+            class="block w-full text-xs text-stone-300 border border-stone-600 rounded cursor-pointer bg-stone-700/60 file:mr-3 file:py-3 file:px-4 file:border-0 file:text-xs file:font-semibold file:bg-stone-600 file:text-stone-100 hover:file:bg-stone-500 touch-target focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          />
+        </div>
+        <span class="text-[11px] text-stone-400">Accepts uncompressed PCM WAV files.</span>
+      </div>
 
-<label>Select WAV Files</label>
-<input id="files" type="file" accept=".wav" multiple>
+      <!-- Duration Configuration -->
+      <div class="flex flex-col gap-2">
+        <label for="durationInput" class="text-xs font-semibold uppercase tracking-wider text-stone-300">
+          Target Duration (Seconds)
+        </label>
+        <div class="flex items-center gap-3">
+          <button 
+            type="button" 
+            id="btnDec" 
+            class="touch-target px-4 bg-stone-700 hover:bg-stone-600 border border-stone-600 rounded text-lg font-bold active:bg-stone-500 transition-colors"
+            aria-label="Decrease duration by 1 second"
+          >-</button>
+          
+          <input 
+            type="number" 
+            id="durationInput" 
+            min="0.1" 
+            step="0.5" 
+            value="5.0" 
+            class="touch-target flex-1 bg-stone-700/60 border border-stone-600 rounded px-3 text-center text-sm font-semibold text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            aria-label="Target duration in seconds"
+          />
 
-<label>Trim Length (Seconds)</label>
-<input id="duration" type="number" value="5" min="0.1" step="0.1">
+          <button 
+            type="button" 
+            id="btnInc" 
+            class="touch-target px-4 bg-stone-700 hover:bg-stone-600 border border-stone-600 rounded text-lg font-bold active:bg-stone-500 transition-colors"
+            aria-label="Increase duration by 1 second"
+          >+</button>
+        </div>
+        <span class="text-[11px] text-stone-400">Audio exceeding this length will be cleanly trimmed.</span>
+      </div>
+    </section>
 
-<button id="startBtn">
-Trim WAV Files & Download ZIP
-</button>
+    <!-- Action Bar -->
+    <section class="flex flex-wrap items-center gap-4">
+      <button 
+        type="button" 
+        id="btnProcess" 
+        disabled 
+        class="touch-target px-6 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-400 disabled:bg-stone-700 disabled:text-stone-500 disabled:cursor-not-allowed font-semibold text-sm rounded shadow-sm transition-colors uppercase tracking-wider flex items-center justify-center gap-2"
+      >
+        <span id="processSpinner" class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+        <span id="processLabel">Process and Download ZIP</span>
+      </button>
 
-<progress id="progress" value="0" max="100"></progress>
+      <button 
+        type="button" 
+        id="btnClear" 
+        class="touch-target px-5 bg-stone-700 hover:bg-stone-600 active:bg-stone-500 text-stone-300 font-semibold text-sm rounded border border-stone-600 transition-colors uppercase tracking-wider"
+      >
+        Clear Selection
+      </button>
 
-<div id="status">
-Ready.
-</div>
+      <div id="statusMessage" class="text-xs font-mono text-stone-400 ml-auto" role="status">
+        Ready. No files selected.
+      </div>
+    </section>
 
-</div>
+    <!-- Loaded Files List -->
+    <section class="flex-1 flex flex-col bg-stone-800/80 rounded-lg border border-stone-700 overflow-hidden shadow-sm">
+      <div class="bg-stone-700/50 px-4 py-3 border-b border-stone-700 flex justify-between items-center">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-stone-300">File Queue</h2>
+        <span id="fileCountBadge" class="text-xs bg-stone-700 text-stone-300 px-2 py-0.5 rounded font-mono">0 files</span>
+      </div>
+      
+      <div class="overflow-y-auto flex-1 divide-y divide-stone-700/60 max-h-[420px]" id="fileListContainer">
+        <div class="p-8 text-center text-stone-500 text-xs font-mono">
+          No files in queue. Tap "Select WAV Files" to load.
+        </div>
+      </div>
+    </section>
+  </main>
 
+  <script>
+    (() => {
+      'use strict';
+
+      // State
+      let selectedFiles = [];
+      let audioCtx = null;
+
+      // DOM Elements
+      const fileInput = document.getElementById('fileInput');
+      const durationInput = document.getElementById('durationInput');
+      const btnDec = document.getElementById('btnDec');
+      const btnInc = document.getElementById('btnInc');
+      const btnProcess = document.getElementById('btnProcess');
+      const btnClear = document.getElementById('btnClear');
+      const processSpinner = document.getElementById('processSpinner');
+      const processLabel = document.getElementById('processLabel');
+      const statusMessage = document.getElementById('statusMessage');
+      const fileListContainer = document.getElementById('fileListContainer');
+      const fileCountBadge = document.getElementById('fileCountBadge');
+
+      // AudioContext Initialization on Explicit Gesture
+      function getAudioContext() {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) {
+            alert('Web Audio API is not supported in this browser.');
+            return null;
+          }
+          audioCtx = new AudioContextClass();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        return audioCtx;
+      }
+
+      // Stepper logic
+      btnDec.addEventListener('click', () => {
+        const val = Math.max(0.1, (parseFloat(durationInput.value) || 1.0) - 1.0);
+        durationInput.value = val.toFixed(1);
+      });
+
+      btnInc.addEventListener('click', () => {
+        const val = (parseFloat(durationInput.value) || 0) + 1.0;
+        durationInput.value = val.toFixed(1);
+      });
+
+      // Handle File Input Selection
+      fileInput.addEventListener('change', (e) => {
+        const incoming = Array.from(e.target.files || []);
+        if (incoming.length === 0) return;
+
+        // Filter case-insensitively for WAV files
+        const valid = incoming.filter(f => f.name.toLowerCase().endsWith('.wav'));
+        
+        if (valid.length !== incoming.length) {
+          statusMessage.textContent = 'Note: Ignored non-WAV files.';
+        }
+
+        // Avoid exact duplicate filenames
+        valid.forEach(f => {
+          if (!selectedFiles.some(existing => existing.name === f.name && existing.size === f.size)) {
+            selectedFiles.push(f);
+          }
+        });
+
+        // Reset file input value to allow re-selection of the same file
+        fileInput.value = '';
+        renderFileList();
+      });
+
+      // Clear selection
+      btnClear.addEventListener('click', () => {
+        selectedFiles = [];
+        fileInput.value = '';
+        renderFileList();
+        statusMessage.textContent = 'Queue cleared.';
+      });
+
+      function renderFileList() {
+        fileListContainer.innerHTML = '';
+        fileCountBadge.textContent = `${selectedFiles.length} file${selectedFiles.length === 1 ? '' : 's'}`;
+
+        if (selectedFiles.length === 0) {
+          btnProcess.disabled = true;
+          fileListContainer.innerHTML = `
+            <div class="p-8 text-center text-stone-500 text-xs font-mono">
+              No files in queue. Tap "Select WAV Files" to load.
+            </div>`;
+          return;
+        }
+
+        btnProcess.disabled = false;
+
+        selectedFiles.forEach((file, idx) => {
+          const row = document.createElement('div');
+          row.className = 'px-4 py-3 flex items-center justify-between text-xs hover:bg-stone-700/30 transition-colors';
+
+          const info = document.createElement('div');
+          info.className = 'flex flex-col truncate mr-2';
+
+          const name = document.createElement('span');
+          name.className = 'font-semibold text-stone-200 truncate';
+          name.textContent = `${idx + 1}. ${file.name}`;
+
+          const meta = document.createElement('span');
+          meta.className = 'text-stone-400 text-[10px] font-mono mt-0.5';
+          meta.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+
+          info.appendChild(name);
+          info.appendChild(meta);
+
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'touch-target px-3 py-1 bg-stone-700 hover:bg-red-700/80 active:bg-red-800 text-stone-300 hover:text-white rounded border border-stone-600 transition-colors text-xs font-mono';
+          delBtn.textContent = 'Remove';
+          delBtn.addEventListener('click', () => {
+            selectedFiles.splice(idx, 1);
+            renderFileList();
+          });
+
+          row.appendChild(info);
+          row.appendChild(delBtn);
+          fileListContainer.appendChild(row);
+        });
+      }
+
+      // Encode AudioBuffer to standard uncompressed 16-bit PCM WAV ArrayBuffer
+      function audioBufferToWav(buffer, maxSeconds) {
+        const numChannels = buffer.numberOfChannels;
+        const sampleRate = buffer.sampleRate;
+        const format = 1; // 1 = Uncompressed PCM
+        const bitDepth = 16;
+        const bytesPerSample = bitDepth / 8;
+        const blockAlign = numChannels * bytesPerSample;
+
+        // Calculate sample cut-off
+        const maxFrames = Math.min(buffer.length, Math.floor(sampleRate * maxSeconds));
+        const dataByteLength = maxFrames * blockAlign;
+        const totalBufferLength = 44 + dataByteLength;
+
+        const arrayBuffer = new ArrayBuffer(totalBufferLength);
+        const view = new DataView(arrayBuffer);
+
+        function writeString(offset, string) {
+          for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+          }
+        }
+
+        // RIFF chunk descriptor
+        writeString(0, 'RIFF');
+        view.setUint32(4, 36 + dataByteLength, true);
+        writeString(8, 'WAVE');
+
+        // FMT sub-chunk
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true); // Subchunk1Size for PCM
+        view.setUint16(20, format, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * blockAlign, true); // ByteRate
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bitDepth, true);
+
+        // DATA sub-chunk
+        writeString(36, 'data');
+        view.setUint32(40, dataByteLength, true);
+
+        // Interleave channel samples and quantize Float32 [-1.0, 1.0] to 16-bit Int
+        let offset = 44;
+        const channels = [];
+        for (let c = 0; c < numChannels; c++) {
+          channels.push(buffer.getChannelData(c));
+        }
+
+        for (let i = 0; i < maxFrames; i++) {
+          for (let c = 0; c < numChannels; c++) {
+            let sample = channels[c][i];
+            // Hard clamp to prevent 16-bit signed integer rollover distortion
+            sample = Math.max(-1, Math.min(1, sample));
+            const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+            view.setInt16(offset, intSample, true);
+            offset += 2;
+          }
+        }
+
+        return arrayBuffer;
+      }
+
+      // Batch Trimming and ZIP Packaging Execution
+      btnProcess.addEventListener('click', async () => {
+        if (selectedFiles.length === 0) return;
+
+        const cutSeconds = parseFloat(durationInput.value);
+        if (isNaN(cutSeconds) || cutSeconds <= 0) {
+          alert('Please enter a valid target duration in seconds.');
+          return;
+        }
+
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        // UI State: In Progress
+        btnProcess.disabled = true;
+        btnClear.disabled = true;
+        fileInput.disabled = true;
+        processSpinner.classList.remove('hidden');
+        processLabel.textContent = 'Processing...';
+
+        const zip = new JSZip();
+        let processedCount = 0;
+        let failCount = 0;
+
+        try {
+          for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            statusMessage.textContent = `Decoding & cutting (${i + 1}/${selectedFiles.length}): ${file.name}`;
+
+            try {
+              const arrayBuffer = await file.arrayBuffer();
+              // Native Web Audio async decoding
+              const decodedBuffer = await ctx.decodeAudioData(arrayBuffer);
+              const trimmedWavBuffer = audioBufferToWav(decodedBuffer, cutSeconds);
+
+              // Construct new clean file name
+              const baseName = file.name.replace(/\.wav$/i, '');
+              const newFileName = `${baseName}_cut_${cutSeconds}s.wav`;
+              zip.file(newFileName, trimmedWavBuffer);
+              processedCount++;
+            } catch (err) {
+              console.error(`Failed to process ${file.name}:`, err);
+              failCount++;
+            }
+          }
+
+          if (processedCount === 0) {
+            statusMessage.textContent = 'Failed to decode any files. Ensure valid WAV audio.';
+            return;
+          }
+
+          statusMessage.textContent = 'Generating ZIP archive...';
+          const zipBlob = await zip.generateAsync({
+            type: 'blob',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 }
+          });
+
+          // Trigger download via anchor element
+          const downloadUrl = URL.createObjectURL(zipBlob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = downloadUrl;
+          a.download = `trimmed_wavs_${cutSeconds}s.zip`;
+          document.body.appendChild(a);
+          a.click();
+          
+          // Cleanup
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(downloadUrl);
+          }, 1000);
+
+          statusMessage.textContent = `Done. ${processedCount} file(s) saved to ZIP.${failCount > 0 ? ` (${failCount} failed)` : ''}`;
+        } catch (globalErr) {
+          console.error('Batch process encountered an error:', globalErr);
+          statusMessage.textContent = 'Error occurred during export.';
+        } finally {
+          btnProcess.disabled = false;
+          btnClear.disabled = false;
+          fileInput.disabled = false;
+          processSpinner.classList.add('hidden');
+          processLabel.textContent = 'Process and Download ZIP';
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
