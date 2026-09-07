@@ -2,75 +2,71 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Advanced WAV Batch Trimmer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WAV Batch Trimmer</title>
 
 https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.jsscript>
+app.jsscript>
 
 <style>
-*{
-    box-sizing:border-box;
-}
-
 body{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    margin:20px;
+    margin:0;
+    padding:20px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
     background:#f5f5f7;
 }
 
 .container{
-    max-width:800px;
+    max-width:900px;
     margin:auto;
     background:white;
-    padding:20px;
-    border-radius:12px;
-    box-shadow:0 2px 10px rgba(0,0,0,.08);
+    padding:24px;
+    border-radius:16px;
+    box-shadow:0 2px 10px rgba(0,0,0,.1);
 }
 
 h1{
+    color:#2563eb;
     margin-top:0;
-    color:#007aff;
 }
 
 label{
     display:block;
-    margin-top:15px;
+    margin-top:20px;
     margin-bottom:8px;
     font-weight:600;
 }
 
-input[type="number"]{
-    width:140px;
+input[type=file],
+input[type=number]{
+    width:100%;
     padding:10px;
     font-size:16px;
 }
 
-input[type="file"]{
-    width:100%;
-}
-
 button{
     margin-top:20px;
-    padding:12px 20px;
-    background:#007aff;
+    background:#2563eb;
     color:white;
     border:none;
+    padding:12px 18px;
     border-radius:8px;
     font-size:16px;
     cursor:pointer;
+}
+
+button:hover{
+    background:#1d4ed8;
 }
 
 button:disabled{
     background:#999;
 }
 
-.progress-container{
-    margin-top:20px;
-}
-
 progress{
     width:100%;
     height:24px;
+    margin-top:15px;
 }
 
 #status{
@@ -78,9 +74,8 @@ progress{
     border:1px solid #ddd;
     border-radius:8px;
     padding:10px;
-    background:#fafafa;
+    min-height:120px;
     white-space:pre-wrap;
-    max-height:250px;
     overflow:auto;
 }
 </style>
@@ -89,289 +84,25 @@ progress{
 
 <div class="container">
 
-<h1>Advanced WAV Batch Trimmer</h1>
+<h1>WAV Batch Trimmer</h1>
 
 <label>Select WAV Files</label>
-<input type="file" id="files" multiple accept=".wav">
+<input id="files" type="file" accept=".wav" multiple>
 
 <label>Trim Length (Seconds)</label>
-<input type="number" id="duration" value="5" min="0.1" step="0.1">
+<input id="duration" type="number" value="5" min="0.1" step="0.1">
 
 <button id="startBtn">
-Trim WAV Files & Create ZIP
+Trim WAV Files & Download ZIP
 </button>
 
-<div class="progress-container">
 <progress id="progress" value="0" max="100"></progress>
-</div>
 
 <div id="status">
 Ready.
 </div>
 
 </div>
-
-<script>
-
-const statusBox = document.getElementById("status");
-const progressBar = document.getElementById("progress");
-
-function log(message){
-    statusBox.textContent += "\n" + message;
-    statusBox.scrollTop = statusBox.scrollHeight;
-}
-
-const audioContext =
-new (window.AudioContext || window.webkitAudioContext)();
-
-document.getElementById("startBtn")
-.addEventListener("click", processFiles);
-
-async function processFiles(){
-
-    const files =
-    document.getElementById("files").files;
-
-    const duration =
-    parseFloat(
-        document.getElementById("duration").value
-    );
-
-    statusBox.textContent = "";
-
-    if(!files.length){
-        alert("Please select WAV files.");
-        return;
-    }
-
-    progressBar.value = 0;
-
-    document.getElementById("startBtn").disabled = true;
-
-    const zip = new JSZip();
-
-    log("Files selected: " + files.length);
-    log("Trim duration: " + duration + " seconds");
-
-    for(let index = 0; index < files.length; index++){
-
-        const file = files[index];
-
-        try{
-
-            log("Processing: " + file.name);
-
-            const buffer =
-            await file.arrayBuffer();
-
-            const decoded =
-            await audioContext.decodeAudioData(buffer);
-
-            const sampleRate =
-            decoded.sampleRate;
-
-            const targetSamples =
-            Math.min(
-                Math.floor(duration * sampleRate),
-                decoded.length
-            );
-
-            const trimmed =
-            audioContext.createBuffer(
-                decoded.numberOfChannels,
-                targetSamples,
-                sampleRate
-            );
-
-            for(
-                let channel = 0;
-                channel < decoded.numberOfChannels;
-                channel++
-            ){
-
-                const source =
-                decoded.getChannelData(channel);
-
-                const destination =
-                trimmed.getChannelData(channel);
-
-                destination.set(
-                    source.slice(0, targetSamples)
-                );
-            }
-
-            const wavBlob =
-            audioBufferToWav(
-                trimmed,
-                targetSamples
-            );
-
-            const filename =
-            file.name.replace(
-                /\.wav$/i,
-                "_trimmed.wav"
-            );
-
-            zip.file(filename, wavBlob);
-
-            log("✓ Done: " + filename);
-
-        }
-        catch(error){
-
-            log(
-                "✗ Error processing "
-                + file.name
-                + " : "
-                + error.message
-            );
-        }
-
-        progressBar.value =
-        ((index + 1) / files.length) * 80;
-    }
-
-    log("Creating ZIP...");
-
-    const zipBlob =
-    await zip.generateAsync(
-        {
-            type:"blob",
-            compression:"DEFLATE",
-            compressionOptions:{
-                level:6
-            }
-        },
-        function(metadata){
-            progressBar.value =
-            80 + metadata.percent / 5;
-        }
-    );
-
-    const url =
-    URL.createObjectURL(zipBlob);
-
-    const link =
-    document.createElement("a");
-
-    link.href = url;
-    link.download = "trimmed_wav_files.zip";
-
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-
-    URL.revokeObjectURL(url);
-
-    progressBar.value = 100;
-
-    log("ZIP file created successfully.");
-    log("Download: trimmed_wav_files.zip");
-
-    document.getElementById("startBtn").disabled = false;
-}
-
-function audioBufferToWav(buffer,length){
-
-    const channels =
-    buffer.numberOfChannels;
-
-    const sampleRate =
-    buffer.sampleRate;
-
-    const bytesPerSample = 2;
-    const blockAlign =
-    channels * bytesPerSample;
-
-    const output =
-    new ArrayBuffer(
-        44 + length * blockAlign
-    );
-
-    const view =
-    new DataView(output);
-
-    writeString(view,0,"RIFF");
-
-    view.setUint32(
-        4,
-        36 + length * blockAlign,
-        true
-    );
-
-    writeString(view,8,"WAVE");
-    writeString(view,12,"fmt ");
-
-    view.setUint32(16,16,true);
-    view.setUint16(20,1,true);
-    view.setUint16(22,channels,true);
-    view.setUint32(24,sampleRate,true);
-    view.setUint32(
-        28,
-        sampleRate * blockAlign,
-        true
-    );
-
-    view.setUint16(32,blockAlign,true);
-    view.setUint16(34,16,true);
-
-    writeString(view,36,"data");
-
-    view.setUint32(
-        40,
-        length * blockAlign,
-        true
-    );
-
-    let offset = 44;
-
-    for(let i=0;i<length;i++){
-
-        for(let channel=0;
-            channel<channels;
-            channel++){
-
-            let sample =
-            buffer.getChannelData(channel)[i];
-
-            sample =
-            Math.max(
-                -1,
-                Math.min(1,sample)
-            );
-
-            view.setInt16(
-                offset,
-                sample < 0
-                ? sample * 32768
-                : sample * 32767,
-                true
-            );
-
-            offset += 2;
-        }
-    }
-
-    return new Blob(
-        [view],
-        {
-            type:"audio/wav"
-        }
-    );
-}
-
-function writeString(view,offset,text){
-
-    for(let i=0;i<text.length;i++){
-
-        view.setUint8(
-            offset + i,
-            text.charCodeAt(i)
-        );
-    }
-}
-
-</script>
 
 </body>
 </html>
